@@ -1,0 +1,22 @@
+*.iml
+.DS_Store
+
+# Local machine and IDE state
+.gradle/
+.kotlin/
+.idea/
+local.properties
+/local.properties
+
+# Build outputs
+/build/
+app/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# Private app configuration
+app/google-services.json
+*.jks
+*.keystore
+*.pem
