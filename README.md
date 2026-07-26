@@ -4,6 +4,12 @@
 
 Zeta Dorada is a native Android commerce app for a premium wellness store. The project focuses on a polished mobile shopping experience backed by Supabase data, Firebase Cloud Messaging, and an admin workflow for managing products, promotions, and orders.
 
+## Screenshots
+
+| Home and catalogue | Cart and checkout |
+| --- | --- |
+| <img src="docs/screenshots/home.png" alt="Zeta Dorada Android home screen with search, promotions, and product catalogue" width="260"> | <img src="docs/screenshots/cart.png" alt="Zeta Dorada Android cart screen with simulated checkout summary" width="260"> |
+
 ## Highlights
 
 - Native Android app built with Kotlin, Jetpack Compose, Material 3, and Gradle Kotlin DSL.
