@@ -24,20 +24,23 @@ export function drawShroomy(ctx, F, S, P = {}, t = 0) {
   if (o === 'rey') { const fl = Math.sin(t * 2.4) * 5, c = new Path2D();
     c.moveTo(-46, -128); c.quadraticCurveTo(-92 - fl, -70, -98 - fl, -8); c.quadraticCurveTo(-50, 2, 0, 0); c.quadraticCurveTo(50, 2, 98 + fl, -8); c.quadraticCurveTo(92 + fl, -70, 46, -128); c.closePath();
     F(c, SH.gold); ctx.save(); ctx.clip(c); ctx.globalAlpha = 0.35; ctx.fillStyle = SH.goldDeep; ctx.fillRect(-120, -60, 240, 70); ctx.restore(); S(c, 0.9); }
+  // laminillas (se ven por debajo del sombrero)
+  const { rx, ry, cy, top } = CAP, gl = ell(sway, cy, rx, ry); F(gl, SH.gill);
+  ctx.save(); ctx.clip(gl); ctx.globalAlpha = 0.5; for (let i = 0; i <= 20; i++) { const a = Math.PI * (0.05 + 0.9 * i / 20), p = new Path2D(); p.moveTo(sway + Math.cos(a) * 40, cy + Math.sin(a) * ry * 0.3); p.lineTo(sway + Math.cos(a) * rx, cy + Math.sin(a) * ry); S(p, 0.35); } ctx.restore();
+  S(gl, 0.8);
   // cuerpo gordito
-  const body = new Path2D(); body.moveTo(-58, -178); body.bezierCurveTo(-20, -188, 20, -188, 58, -178); body.bezierCurveTo(80, -130, 82, -70, 74, -42); body.bezierCurveTo(68, -12, 42, -3, 0, -3);
-  body.bezierCurveTo(-42, -3, -68, -12, -74, -42); body.bezierCurveTo(-82, -70, -80, -130, -58, -178); body.closePath();
-  F(body, SH.body); ctx.save(); ctx.clip(body); ctx.globalAlpha = 0.45; ctx.fillStyle = SH.bodyShade; ctx.beginPath(); ctx.ellipse(34, -10, 70, 50, 0, 0, 7); ctx.fill(); ctx.restore(); S(body, 1);
+  // el tallo nace angosto del centro del sombrero y se ensancha hacia abajo
+  const body = new Path2D(); body.moveTo(-40, -198); body.bezierCurveTo(-14, -204, 14, -204, 40, -198); body.bezierCurveTo(48, -156, 82, -126, 78, -62); body.bezierCurveTo(74, -14, 42, -3, 0, -3);
+  body.bezierCurveTo(-42, -3, -74, -14, -78, -62); body.bezierCurveTo(-82, -126, -48, -156, -40, -198); body.closePath();
+  F(body, SH.body); ctx.save(); ctx.clip(body); ctx.globalAlpha = 0.45; ctx.fillStyle = SH.bodyShade; ctx.beginPath(); ctx.ellipse(34, -10, 70, 50, 0, 0, 7); ctx.fill();
+  { const sh = ctx.createLinearGradient(0, CAP.cy - 4, 0, CAP.cy + 26); sh.addColorStop(0, 'rgba(150,110,50,.45)'); sh.addColorStop(1, 'rgba(150,110,50,0)'); ctx.globalAlpha = 1; ctx.fillStyle = sh; ctx.fillRect(-90, CAP.cy - 10, 180, 40); }
+  ctx.restore(); S(body, 1);
   // pies o botitas
   for (const fx of [-30, 30]) {
     if (o === 'rey') { const b = ell(fx, -4, 27, 15); F(b, SH.boot); S(b, 0.8); const cf = new Path2D(); cf.moveTo(fx - 22, -12); cf.quadraticCurveTo(fx, -4, fx + 22, -12); ctx.save(); ctx.lineWidth = 6; ctx.strokeStyle = SH.goldLight; ctx.stroke(cf); ctx.restore(); }
     else { const f = ell(fx, -7, 23, 12); F(f, SH.bodyShade); S(f, 0.8); } }
   // ropa del cuerpo
   clothes(ctx, F, S, o, t);
-  // laminillas (se ven por debajo del sombrero)
-  const { rx, ry, cy, top } = CAP, gl = ell(sway, cy, rx, ry); F(gl, SH.gill);
-  ctx.save(); ctx.clip(gl); ctx.globalAlpha = 0.5; for (let i = 0; i <= 20; i++) { const a = Math.PI * (0.05 + 0.9 * i / 20), p = new Path2D(); p.moveTo(sway + Math.cos(a) * 30, cy + Math.sin(a) * 6); p.lineTo(sway + Math.cos(a) * rx, cy + Math.sin(a) * ry); S(p, 0.35); } ctx.restore();
-  S(gl, 0.8);
   // sombrero dorado (cúpula brillante con lunares claros)
   const cap = new Path2D(); cap.moveTo(sway - rx, cy); cap.bezierCurveTo(sway - rx - 6, cy - 84, sway - rx * 0.55, top, sway, top); cap.bezierCurveTo(sway + rx * 0.55, top, sway + rx + 6, cy - 84, sway + rx, cy);
   cap.ellipse(sway, cy, rx, ry, 0, 0, Math.PI, true); cap.closePath();
