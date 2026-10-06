@@ -5,7 +5,7 @@ vid, path = sys.argv[1], sys.argv[2]; off = float(sys.argv[3]) if len(sys.argv) 
 key = os.environ.get('ELEVENLABS_API_KEY') or [l.split('=', 1)[1].strip() for l in open(os.path.expanduser('~/.config/video-pizarra/keys.env')) if l.startswith('ELEVENLABS_API_KEY=')][0]
 text = open(path, encoding='utf-8').read().strip()
 body = json.dumps({'text': text, 'model_id': 'eleven_multilingual_v2', 'language_code': 'es',
-                   'voice_settings': {'stability': 0.55, 'similarity_boost': 0.8, 'style': 0.2, 'speed': 1.0}}).encode()
+                   'voice_settings': {'stability': 0.45, 'similarity_boost': 0.8, 'style': 0.35, 'speed': 0.95}}).encode()
 r = json.load(urllib.request.urlopen(urllib.request.Request(f'https://api.elevenlabs.io/v1/text-to-speech/{vid}/with-timestamps?output_format=mp3_44100_128',
     data=body, headers={'xi-api-key': key, 'content-type': 'application/json'})))
 open('audio/_vo_raw.mp3', 'wb').write(base64.b64decode(r['audio_base64']))

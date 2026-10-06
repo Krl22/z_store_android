@@ -10,6 +10,20 @@ export const NAME = 'Mushie';
 Object.assign(CHAR, { outfit: 'rey' });
 const PHONE = '+51 928 817 018';
 
+// ---- vida: boca con la voz (audio/env.json, de lipsync.py) y pulso al ritmo de la música (audio/beats.json) ----
+const ENV = await fetch('audio/env.json').then(r => r.json()).catch(() => null);
+const BEATS = await fetch('audio/beats.json').then(r => r.json()).catch(() => null);
+const camB = z => ({ z, x: W / 2, y: H - H / 2 / z }); // zoom anclado abajo: nunca se ve el borde del lienzo
+const talkAt = T => ENV ? (ENV.v[Math.round(T * ENV.fps)] || 0) : 0;
+const pulseAt = T => { if (!BEATS) return 0; let last = -9; for (const b of BEATS.beats) { if (b > T) break; last = b; } return Math.exp(-(T - last) * 7); };
+function alive(st, T) { const P = st.pose, v = talkAt(T), b = pulseAt(T);
+  Object.assign(P, { talk: v, brow: Math.max(P.brow || 0, v * 0.8), sy: (P.sy || 1) * (1 + v * 0.04 + b * 0.015), sx: (P.sx || 1) * (1 - v * 0.02 - b * 0.008), seed: 0.7 });
+  return st; }
+// hojas que caen en bucle, con vaivén
+function leafFall(K, sk, t, n, seed = 1, y0 = -120, y1 = 1500) { const r = L.rng(seed);
+  for (let i = 0; i < n; i++) { const x = 60 + r() * 960, sp = 150 + r() * 120, ph = r() * 10, s = 0.6 + r() * 0.5, span = y1 - y0, y = y0 + ((t * sp + ph * 100) % span);
+    leaf(K, sk, x + Math.sin(t * 1.8 + ph) * 60, y, s, Math.sin(t * 2.2 + ph) * 0.9, i % 2 ? '#8DB07A' : '#6E9A5B'); } }
+
 const W = 1080, H = 1920, FLOOR = 1420, LOGO = 'assets/logo-zeta.png';
 const boil = K => Math.floor(K.t * 8);
 const cl = L.clamp, E = L.E;
@@ -55,23 +69,22 @@ export default {
   person: false, mascot: 'shroomy', actor: { x: 540, y: FLOOR, h: 460 },
   scenes: [
     // 1 · HOLA — entra rebotando y saluda
-    { type: 'story', dur: 5.55, bg: 'cream', say: `¡Hola! Soy ${NAME}. Te doy la bienvenida a Zeta Dorada.`,
+    { type: 'story', dur: 5.39, bg: 'cream', cam: t => camB(1 + 0.05 * E.inOut(cl(t / 5.4))), say: `¡Hola! Soy ${NAME}. Te doy la bienvenida a Zeta Dorada.`,
       render(K, s, h) { const sk = SK(K), t = s.t;
         h.cue('title', 0.15); [0.45, 0.8, 1.1].forEach(a => h.cue('hop', a)); h.cue('pop', 1.5); h.cue('title', 2.8);
         table(K, sk, FLOOR, '#E5EDCB');
-        leaf(K, sk, 820 + Math.sin(t * 1.6) * 50, -80 + t * 230, 1.1, Math.sin(t * 2) * 0.8);
-        leaf(K, sk, 220 + Math.sin(t * 1.3 + 1) * 40, -240 + t * 210, 0.85, Math.sin(t * 1.7 + 1) * 0.9, '#8DB07A');
+        leafFall(K, sk, t, 5, 3);
         const box = { x: 60, y: 300, w: 960, h: 260 };
         L.writeOn(K.ctx, () => HL(K, s, `¡Hola! Soy *${NAME}*`, box, 1, { max: 140 }), box, cl((t - 0.15) / 0.9), { tool: 'brush', lines: 1 });
         hand(K, 'te doy la bienvenida', 540, 640, 66, Z.green, cl((t - 2.8) / 0.4));
         hand(K, 'a Zeta Dorada', 540, 720, 66, Z.green, cl((t - 3.6) / 0.4));
         sparkle(K, 820, 930, 32, cl((t - 1.5) / 0.6)); sparkle(K, 260, 1000, 24, cl((t - 1.65) / 0.6)); },
-      actor(t) { const q = cl((t - 0.15) / 1.1), x = L.lerp(1350, 540, E.out(q)), b = t < 1.25 ? Math.abs(Math.sin(q * Math.PI * 3)) * (1 - q * 0.7) * 160 : 0;
+      actor(t, o) { const q = cl((t - 0.15) / 1.1), x = L.lerp(1350, 540, E.out(q)), b = t < 1.25 ? Math.abs(Math.sin(q * Math.PI * 3)) * (1 - q * 0.7) * 160 : 0;
         const land = [0.45, 0.8, 1.1, 1.26].reduce((m, a) => m + squash(t, a - 0.05, 0.16, 0.16), 0);
-        return { x, y: FLOOR, h: 500, pose: { wand: true, hop: b, sx: 1 + land, sy: 1 - land, armR: wave(t, 1.5), armL: 12, eyes: t > 1.4 ? 'happy' : 'dot', mouth: t > 1.4 ? 'open' : 'smile', look: t < 1.3 ? [-0.5, 0] : [0, 0.1] } }; } },
+        return alive({ x, y: FLOOR, h: 500, pose: { wand: true, hop: b, sx: 1 + land, sy: 1 - land, armR: wave(t, 1.5), armL: 12, eyes: t > 1.4 ? 'happy' : 'dot', mouth: t > 1.4 ? 'open' : 'smile', look: t < 1.3 ? [-0.5, 0] : [0, 0.1] } }, o.K.t); } },
 
     // 2 · QUÉ HACEMOS — kits de autocultivo de hongos comestibles
-    { type: 'story', dur: 4.0, bg: 'sage', trans: { type: 'pan', dur: 0.6 }, say: 'Hacemos kits para cultivar hongos comestibles en casa.',
+    { type: 'story', dur: 4.04, bg: 'sage', cam: t => camB(1.05 - 0.05 * E.out(cl(t / 1.2))), trans: { type: 'pan', dur: 0.6 }, say: 'Hacemos kits para cultivar hongos comestibles en casa.',
       render(K, s, h) { const sk = SK(K, 23), ctx = K.ctx, t = s.t;
         h.cue('title', 0.2); h.cue('pop', 0.9); h.cue('pop', 1.15); h.cue('pop', 1.4); h.cue('title', 1.8);
         table(K, sk, 1220);
@@ -80,30 +93,31 @@ export default {
         HL(K, s, 'Kits de hongos *comestibles*', { x: 60, y: 260, w: 960, h: 300 }, h.A(0.2, 0.6), { max: 120 });
         hand(K, 'para cultivar en casa', 540, 640, 70, Z.green, cl((t - 1.8) / 0.4));
         [[200, 900, 1.6], [880, 880, 1.75]].forEach(([x, y, a]) => sparkle(K, x, y, 28, cl((t - a) / 0.6))); },
-      actor(t) { return { x: 540, y: 1700, h: 440, pose: { armL: t > 1.0 ? 85 : 20, armR: 20, eyes: t > 1.8 ? 'happy' : 'dot', look: [-0.2, -0.7], hop: t > 1.8 && t < 2.1 ? Math.sin((t - 1.8) / 0.3 * Math.PI) * 24 : 0 } }; } },
+      actor(t, o) { return alive({ x: 540, y: 1700, h: 440, pose: { armL: t > 1.0 ? 85 : 20, armR: 20, eyes: t > 1.8 ? 'happy' : 'dot', look: [-0.2, -0.7], hop: t > 1.8 && t < 2.1 ? Math.sin((t - 1.8) / 0.3 * Math.PI) * 24 : 0 } }, o.K.t); } },
 
     // 3 · CON CALMA — taza y planta; respira tranquilo (nada crece)
-    { type: 'story', dur: 3.0, bg: 'sun', trans: { type: 'iris', x: 0.5, y: 1200 / H, dur: 0.6 }, say: 'Hechos con calma, como nos gusta.',
+    { type: 'story', dur: 2.69, bg: 'sun', cam: t => camB(1 + 0.06 * E.inOut(cl(t / 2.7))), trans: { type: 'iris', x: 0.5, y: 1200 / H, dur: 0.6 }, say: 'Hechos con calma, como nos gusta.',
       render(K, s, h) { const sk = SK(K, 25), t = s.t;
-        h.cue('title', 0.15); h.cue('title', 1.6);
+        h.cue('title', 0.15); h.cue('whoosh', 0.4); h.cue('title', 1.4);
         table(K, sk, 1380);
         mug(K, sk, 200, 1384, t); plant(K, sk, 880, 1384, t);
         HL(K, s, 'Hechos con *calma*', { x: 60, y: 300, w: 960, h: 260 }, h.A(0.15, 0.7), { max: 140 });
-        hand(K, 'como nos gusta', 540, 650, 70, Z.green, cl((t - 1.6) / 0.5));
-        leaf(K, sk, 560 + Math.sin(t * 1.1) * 120, 760 + t * 70, 0.7, Math.sin(t * 1.4) * 0.7, '#8DB07A'); },
-      actor(t) { const br = Math.sin(t * 2.2) * 0.03; // respira lento
-        return { x: 540, y: 1384, h: 440, pose: { sx: 1 + br, sy: 1 - br, armL: 8, armR: 8, eyes: t > 0.6 ? 'closed' : 'dot', mouth: 'smile' } }; } },
+        hand(K, 'como nos gusta', 540, 650, 70, Z.green, cl((t - 1.4) / 0.5));
+        leafFall(K, sk, t * 0.6, 3, 7, 700, 1380); },
+      actor(t, o) { const br = Math.sin(t * 2.2) * 0.03; // respira lento
+        return alive({ x: 540, y: 1384, h: 440, pose: { sx: 1 + br, sy: 1 - br, armL: 8, armR: 8, eyes: t > 0.6 ? 'closed' : 'dot', mouth: 'smile' } }, o.K.t); } },
 
     // 4 · CIERRE — logo, «Pide por WhatsApp» y número (sin precio)
-    { type: 'story', dur: 5.6, bg: 'cream', image: LOGO, trans: { type: 'fade', dur: 0.6 }, say: '¿Quieres el tuyo? Pide por WhatsApp.',
+    { type: 'story', dur: 6.05, bg: 'cream', image: LOGO, cam: t => camB(1 + 0.03 * E.inOut(cl(t / 6))), trans: { type: 'fade', dur: 0.6 }, say: '¿Quieres el tuyo? Pide por WhatsApp.',
       render(K, s, h) { const sk = SK(K, 31), ctx = K.ctx, t = s.t, img = K.images[LOGO];
         h.cue('enter', 0.2); h.cue('title', 0.6); h.cue('impact', 2.0); h.cue('ding', 2.1); h.cue('pop', 2.6);
         table(K, sk, FLOOR, '#E5EDCB');
-        [[110, 300, 0.2], [970, 330, 2.6], [90, 1180, -0.4], [990, 1120, 0.6]].forEach(([x, y, a], i) => leaf(K, sk, x, y + Math.sin(t * 1.5 + i) * 6, 1.1, a, i % 2 ? '#8DB07A' : '#6E9A5B'));
+        [[110, 300, 0.2], [970, 330, 2.6], [90, 1180, -0.4], [990, 1120, 0.6]].forEach(([x, y, a], i) => leaf(K, sk, x, y + Math.sin(t * 1.5 + i) * 6, 1.1, a + Math.sin(t * 2 + i) * 0.12, i % 2 ? '#8DB07A' : '#6E9A5B'));
+        if (t > 2.4) leafFall(K, sk, t - 2.4, 3, 11, -120, 1400);
         if (img) { const e = E.out(cl((t - 0.1) / 0.6)), w = 760, hh = w * img.height / img.width; ctx.save(); ctx.globalAlpha = e; ctx.drawImage(img, (W - w) / 2, 250 - (1 - e) * 30, w, hh); ctx.restore(); }
         HL(K, s, '¿Quieres *el tuyo?*', { x: 60, y: 500, w: 960, h: 170 }, h.A(0.6, 0.6), { max: 110 });
         waButton(K, 540, 770, pop(t, 2.0, 0.45));
         const n = cl((t - 2.6) / 0.4); if (n > 0) L.text(ctx, PHONE, 540, 905, { font: '600 70px Poppins', color: Z.deep, align: 'center', alpha: n }); },
-      actor(t) { return { x: 540, y: FLOOR, h: 380, pose: { armR: wave(t, 2.8), armL: 12, eyes: 'happy', mouth: t > 2.8 ? 'open' : 'smile', hop: t > 2.0 && t < 2.3 ? Math.sin((t - 2.0) / 0.3 * Math.PI) * 24 : 0 } }; } },
+      actor(t, o) { return alive({ x: 540, y: FLOOR, h: 380, pose: { wand: t > 3.6, armR: wave(t, 3.6), armL: t > 0.5 && t < 2.2 ? 70 : 12, eyes: t > 3.6 ? 'happy' : 'dot', mouth: t > 3.6 ? 'open' : 'smile', hop: t > 2.0 && t < 2.3 ? Math.sin((t - 2.0) / 0.3 * Math.PI) * 24 : 0 } }, o.K.t); } },
   ],
 };

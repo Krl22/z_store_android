@@ -61,18 +61,20 @@ export function drawShroomy(ctx, F, S, P = {}, t = 0) {
   // bracitos
   for (const A of [AL, AR]) { ctx.save(); ctx.translate(A.sx, ay); ctx.rotate(A.a); const p = rr(-12, 0, 24, 44, 12); F(p, SH.body); S(p, 0.8); const hd = ell(0, 46, 14, 14); F(hd, SH.body); S(hd, 0.7); ctx.restore(); }
   // carita en el cuerpo
-  const ex = sway + lk[0] * 7, ey = lk[1] * 6, es = P.eyes || 'dot';
+  const ex = sway + lk[0] * 7, ey = lk[1] * 6, blink = P.blink !== false && ((t + (P.seed || 0)) % 3.3) < 0.13, es = (P.eyes || 'dot') === 'dot' && blink ? 'closed' : (P.eyes || 'dot');
   ctx.fillStyle = SH.eye; ctx.strokeStyle = SH.eye;
   for (const x0 of [-30, 30]) { const x = x0 + ex, y = -116 + ey; ctx.beginPath();
     if (es === 'happy') { ctx.lineWidth = 6; ctx.moveTo(x - 11, y + 4); ctx.quadraticCurveTo(x, y - 10, x + 11, y + 4); ctx.stroke(); continue; }
     if (es === 'closed') { ctx.lineWidth = 5.5; ctx.moveTo(x - 11, y); ctx.quadraticCurveTo(x, y + 8, x + 11, y); ctx.stroke(); continue; }
     const m = es === 'wide' ? 1.2 : 1; ctx.ellipse(x, y, 12 * m, 15 * m, 0, 0, 7); ctx.fill(); ctx.save(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 4, y - 5, 4.5 * m, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x - 3.5, y + 5, 2 * m, 0, 7); ctx.fill(); ctx.restore(); }
+  { const br = (P.brow || 0) * 7 + (es === 'wide' ? 6 : 0); ctx.save(); ctx.globalAlpha = 0.75; ctx.strokeStyle = SH.eye; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+    for (const s of [-1, 1]) { const x = s * 30 + ex, y = -140 + ey - br; ctx.beginPath(); ctx.moveTo(x - 9, y + 2); ctx.quadraticCurveTo(x, y - 4 - br * 0.3, x + 9, y + 2); ctx.stroke(); } ctx.restore(); }
   ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = SH.blush; for (const x of [-52, 52]) { ctx.beginPath(); ctx.ellipse(x + ex, -94 + ey, 14, 8, 0, 0, 7); ctx.fill(); } ctx.restore();
-  { const my = -94 + ey, mo = P.mouth || 'open', m = new Path2D();
+  { const my = -94 + ey, talking = typeof P.talk === 'number' && P.talk >= 0.08, mo = talking ? 'open' : (P.mouth || 'open'), k = talking ? 0.35 + 0.8 * P.talk : 1, mw = talking ? 12 + 6 * P.talk : 16, m = new Path2D();
     if (mo === 'o') { m.ellipse(ex, my + 4, 8, 10, 0, 0, 7); ctx.fillStyle = SH.mouth; ctx.fill(m); }
     else if (mo === 'smile') { m.moveTo(ex - 12, my); m.quadraticCurveTo(ex, my + 12, ex + 12, my); }
-    else { m.moveTo(ex - 16, my - 2); m.quadraticCurveTo(ex, my + 24, ex + 16, my - 2); m.closePath(); ctx.fillStyle = SH.mouth; ctx.fill(m);
-      ctx.save(); ctx.clip(m); ctx.fillStyle = '#E98C86'; ctx.beginPath(); ctx.ellipse(ex, my + 14, 9, 6, 0, 0, 7); ctx.fill(); ctx.restore(); }
+    else { m.moveTo(ex - mw, my - 2); m.quadraticCurveTo(ex, my + 24 * k, ex + mw, my - 2); m.closePath(); ctx.fillStyle = SH.mouth; ctx.fill(m);
+      ctx.save(); ctx.clip(m); ctx.fillStyle = '#E98C86'; ctx.beginPath(); ctx.ellipse(ex, my + 14 * k, 9, 6, 0, 0, 7); ctx.fill(); ctx.restore(); }
     S(m, 0.8); }
   // ropa de la cabeza
   const hatTop = hats(ctx, F, S, o, sway, t);
@@ -95,7 +97,9 @@ function hats(ctx, F, S, o, x, t) {
   if (o === 'rey') { ctx.save(); ctx.translate(x + 36, top + 8); ctx.rotate(0.22); ctx.scale(0.72, 0.72);
     const c = new Path2D(); c.moveTo(-36, 0); c.lineTo(-38, -40); c.lineTo(-18, -20); c.lineTo(0, -50); c.lineTo(18, -20); c.lineTo(38, -40); c.lineTo(36, 0); c.closePath(); F(c, SH.boot); S(c, 0.9);
     const b = rr(-38, -6, 76, 14, 5); F(b, SH.goldLight); S(b, 0.7); for (const [px, py] of [[-38, -40], [0, -50], [38, -40]]) { const ball = ell(px, py - 4, 6, 6); F(ball, SH.goldLight); S(ball, 0.5); }
-    ctx.fillStyle = '#EAF4F2'; ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(8, -14); ctx.lineTo(0, -4); ctx.lineTo(-8, -14); ctx.closePath(); ctx.fill(); ctx.restore(); return top - 56; }
+    ctx.fillStyle = '#EAF4F2'; ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(8, -14); ctx.lineTo(0, -4); ctx.lineTo(-8, -14); ctx.closePath(); ctx.fill();
+    { const g = (t % 2.6) / 0.6; if (g < 1) { ctx.globalAlpha = Math.sin(g * Math.PI); ctx.fillStyle = '#FFFFFF'; star(ctx, -34 + 68 * g, -26 - Math.sin(g * Math.PI) * 10, 12, 4, 0.28); ctx.fill(); ctx.globalAlpha = 1; } }
+    ctx.restore(); return top - 56; }
   if (o === 'chef') { const b = top + 20, h = new Path2D(); h.moveTo(x - 46, b); h.bezierCurveTo(x - 80, b - 10, x - 76, b - 70, x - 40, b - 66); h.bezierCurveTo(x - 34, b - 100, x + 34, b - 102, x + 42, b - 68); h.bezierCurveTo(x + 78, b - 72, x + 82, b - 10, x + 46, b); h.closePath(); F(h, '#FFFFFF'); S(h);
     const bd = rr(x - 48, b - 12, 96, 26, 6); F(bd, '#FFFFFF'); S(bd, 0.9); return b - 100; }
   if (o === 'jardinero') { const y = top + 30, br = ell(x, y, rx * 0.9, 20); F(br, SH.straw); S(br);
