@@ -20,14 +20,14 @@ function alive(st, T) { const P = st.pose, v = talkAt(T), b = pulseAt(T);
   Object.assign(P, { talk: v, brow: Math.max(P.brow || 0, v * 0.8), sy: (P.sy || 1) * (1 + v * 0.04 + b * 0.015), sx: (P.sx || 1) * (1 - v * 0.02 - b * 0.008), seed: 0.7 });
   return st; }
 // hojas que caen en bucle, con vaivén
-function leafFall(K, sk, t, n, seed = 1, y0 = -120, y1 = 1500) { const r = L.rng(seed);
+export function leafFall(K, sk, t, n, seed = 1, y0 = -120, y1 = 1500) { const r = L.rng(seed);
   for (let i = 0; i < n; i++) { const x = 60 + r() * 960, sp = 150 + r() * 120, ph = r() * 10, s = 0.6 + r() * 0.5, span = y1 - y0, y = y0 + ((t * sp + ph * 100) % span);
     leaf(K, sk, x + Math.sin(t * 1.8 + ph) * 60, y, s, Math.sin(t * 2.2 + ph) * 0.9, i % 2 ? '#8DB07A' : '#6E9A5B'); } }
 
 const W = 1080, H = 1920, FLOOR = 1420, LOGO = 'assets/logo-zeta.png';
 const boil = K => Math.floor(K.t * 8);
 const cl = L.clamp, E = L.E;
-function SK(K, seed = 21) { const ctx = K.ctx, wf = L.washFill(ctx, seed, { alpha: 0.42, gran: 0.1, pool: 0.25 });
+export function SK(K, seed = 21) { const ctx = K.ctx, wf = L.washFill(ctx, seed, { alpha: 0.42, gran: 0.1, pool: 0.25 });
   return { fill: (p, c) => { ctx.fillStyle = '#FFFEF8'; ctx.fill(p); wf(p, c); }, stroke: L.wobbleStroke(ctx, Z.ink, 4, 1, boil(K)), ink: Z.ink }; }
 const HL = (K, s, str, box, p, o = {}) => K.S.headline(K, str, box, p, s, o);
 function hand(K, str, x, y, size, color = Z.green, alpha = 1) { L.text(K.ctx, str, x, y, { font: K.S.type.hand(size), color, align: 'center', alpha }); }
@@ -38,25 +38,25 @@ const squash = (t, a, d = 0.3, k = 0.22) => (t > a && t < a + d) ? Math.sin((t -
 const wave = (t, a) => t > a ? 60 + Math.sin((t - a) * 9) * 20 : 15;
 
 // ---------- piezas ----------
-function table(K, sk, y = FLOOR, col = '#D9B48A') { const top = new Path2D(); top.rect(-40, y - 6, W + 80, H - y + 60); sk.fill(top, col); const ln = new Path2D(); ln.moveTo(-20, y); ln.lineTo(W + 20, y); sk.stroke(ln, 0.9);
+export function table(K, sk, y = FLOOR, col = '#D9B48A') { const top = new Path2D(); top.rect(-40, y - 6, W + 80, H - y + 60); sk.fill(top, col); const ln = new Path2D(); ln.moveTo(-20, y); ln.lineTo(W + 20, y); sk.stroke(ln, 0.9);
   for (let k = 1; k < 6; k++) { const yy = y + k * k * 14, g = new Path2D(); g.moveTo(-20, yy); g.lineTo(W + 20, yy); K.ctx.save(); K.ctx.globalAlpha = 0.18; sk.stroke(g, 0.5); K.ctx.restore(); } }
-function leaf(K, sk, x, y, s, a, col = '#6E9A5B') { const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s); const p = new Path2D(); p.moveTo(0, -40); p.quadraticCurveTo(26, -6, 0, 40); p.quadraticCurveTo(-26, -6, 0, -40); sk.fill(p, col);
+export function leaf(K, sk, x, y, s, a, col = '#6E9A5B') { const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.scale(s, s); const p = new Path2D(); p.moveTo(0, -40); p.quadraticCurveTo(26, -6, 0, 40); p.quadraticCurveTo(-26, -6, 0, -40); sk.fill(p, col);
   const v = new Path2D(); v.moveTo(0, -34); v.lineTo(0, 36); ctx.save(); ctx.globalAlpha = 0.5; sk.stroke(v, 0.5); ctx.restore(); ctx.restore(); }
-function sparkle(K, x, y, r, p) { if (p <= 0) return; const ctx = K.ctx; ctx.save(); ctx.globalAlpha = cl(1.4 - p); ctx.fillStyle = Z.gold; L.star(ctx, x, y, r * E.out(cl(p * 2)), 4, 0.35); ctx.fill(); ctx.restore(); }
-function kitBox(K, sk, x, y, w, h, label) { // caja kraft genérica con etiqueta verde (el empaque real no está confirmado)
+export function sparkle(K, x, y, r, p) { if (p <= 0) return; const ctx = K.ctx; ctx.save(); ctx.globalAlpha = cl(1.4 - p); ctx.fillStyle = Z.gold; L.star(ctx, x, y, r * E.out(cl(p * 2)), 4, 0.35); ctx.fill(); ctx.restore(); }
+export function kitBox(K, sk, x, y, w, h, label) { // caja kraft genérica con etiqueta verde (el empaque real no está confirmado)
   const ctx = K.ctx; const fl = new Path2D(); fl.moveTo(x, y); fl.lineTo(x - w * 0.12, y - h * 0.22); fl.lineTo(x + w * 0.45, y - h * 0.2); fl.lineTo(x + w * 0.5, y); fl.closePath(); sk.fill(fl, '#B98E62'); sk.stroke(fl);
   const fr = new Path2D(); fr.moveTo(x + w, y); fr.lineTo(x + w * 1.12, y - h * 0.22); fr.lineTo(x + w * 0.55, y - h * 0.2); fr.lineTo(x + w * 0.5, y); fr.closePath(); sk.fill(fr, '#B98E62'); sk.stroke(fr);
   const b = rr(x, y, w, h, 10); sk.fill(b, SH.kraft); sk.stroke(b);
   const lb = rr(x + w * 0.1, y + h * 0.26, w * 0.8, h * 0.5, 12); ctx.fillStyle = Z.surface; ctx.fill(lb); ctx.lineWidth = 4; ctx.strokeStyle = Z.green; ctx.stroke(lb);
   L.text(ctx, 'Zeta Dorada', x + w / 2, y + h * 0.47, { font: `600 ${Math.round(w * 0.11)}px Fraunces`, color: Z.deep, align: 'center' });
   L.text(ctx, label, x + w / 2, y + h * 0.64, { font: `600 ${Math.round(w * 0.075)}px Poppins`, color: Z.green, align: 'center' }); }
-function mug(K, sk, x, y, t) { const ctx = K.ctx; // taza de cerámica verde con vapor
+export function mug(K, sk, x, y, t) { const ctx = K.ctx; // taza de cerámica verde con vapor
   const hd = new Path2D(); hd.ellipse(x + 78, y - 70, 30, 36, 0, -1.4, 1.4); ctx.save(); ctx.lineWidth = 16; ctx.strokeStyle = Z.green; ctx.stroke(hd); ctx.restore();
   const b = rr(x - 70, y - 150, 140, 150, 24); sk.fill(b, Z.green); sk.stroke(b); const rim = ell(x, y - 150, 70, 14); sk.fill(rim, '#7A5A3C'); sk.stroke(rim, 0.7);
   ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineCap = 'round';
   for (let k = 0; k < 3; k++) { const ph = (t * 0.45 + k / 3) % 1; ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.8; ctx.lineWidth = 8 - ph * 4; ctx.beginPath();
     for (let i = 0; i <= 12; i++) { const u = i / 12, yy = y - 170 - ph * 180 - u * 90, xx = x + (k - 1) * 34 + Math.sin(u * 5 + t * 2 + k) * 14; i ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); } ctx.stroke(); } ctx.restore(); }
-function plant(K, sk, x, y, t) { const pot = new Path2D(); pot.moveTo(x - 60, y); pot.lineTo(x - 74, y - 120); pot.lineTo(x + 74, y - 120); pot.lineTo(x + 60, y); pot.closePath();
+export function plant(K, sk, x, y, t) { const pot = new Path2D(); pot.moveTo(x - 60, y); pot.lineTo(x - 74, y - 120); pot.lineTo(x + 74, y - 120); pot.lineTo(x + 60, y); pot.closePath();
   for (let k = 0; k < 7; k++) leaf(K, sk, x + (k - 3) * 24, y - 170 - (3 - Math.abs(k - 3)) * 22, 1.05, (k - 3) * 0.32 + Math.sin(t * 1.2 + k) * 0.05, k % 2 ? '#8DB07A' : '#6E9A5B');
   sk.fill(pot, '#E9DFC6'); sk.stroke(pot); const rim = rr(x - 82, y - 136, 164, 24, 8); sk.fill(rim, '#E9DFC6'); sk.stroke(rim, 0.8); }
 function waButton(K, x, y, c) { if (c <= 0.01) return; const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.scale(c, c);
