@@ -39,12 +39,15 @@ export function drawShroomy(ctx, F, S, P = {}, t = 0) {
   cap.moveTo(sway - rx, bot); cap.bezierCurveTo(sway - rx * 1.03, bot - h * 0.78, sway - rx * 0.56, top, sway, top);
   cap.bezierCurveTo(sway + rx * 0.56, top, sway + rx * 1.03, bot - h * 0.78, sway + rx, bot);
   cap.quadraticCurveTo(sway + rx * 0.98, bot + 14, sway + rx * 0.6, bot + 13); cap.quadraticCurveTo(sway, bot + 20, sway - rx * 0.6, bot + 13); cap.quadraticCurveTo(sway - rx * 0.98, bot + 14, sway - rx, bot); cap.closePath();
-  F(cap, SH.gold);
+  const cream = P.tone === 'crema', cc = cream ? { base: '#F4EAD0', deep: '#C9B48A', light: '#FFFDF4' } : { base: SH.gold, deep: SH.goldDeep, light: SH.goldLight };
+  F(cap, cc.base);
   ctx.save(); ctx.clip(cap);
-  ctx.globalAlpha = 0.32; ctx.fillStyle = SH.goldDeep; ctx.beginPath(); ctx.ellipse(sway, bot + 26, rx * 1.15, h * 0.42, 0, 0, 7); ctx.fill();
-  ctx.globalAlpha = 0.75; ctx.fillStyle = SH.goldLight; ctx.beginPath(); ctx.ellipse(sway - rx * 0.42, top + h * 0.3, rx * 0.26, h * 0.12, -0.5, 0, 7); ctx.fill();
+  ctx.globalAlpha = 0.32; ctx.fillStyle = cc.deep; ctx.beginPath(); ctx.ellipse(sway, bot + 26, rx * 1.15, h * 0.42, 0, 0, 7); ctx.fill();
+  ctx.globalAlpha = 0.75; ctx.fillStyle = cc.light; ctx.beginPath(); ctx.ellipse(sway - rx * 0.42, top + h * 0.3, rx * 0.26, h * 0.12, -0.5, 0, 7); ctx.fill();
   ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(sway - rx * 0.12, top + h * 0.17, 6, 0, 7); ctx.fill();
+  if (cream) { ctx.globalAlpha = 1; ctx.strokeStyle = SH.gold; ctx.lineWidth = 16; ctx.beginPath(); ctx.moveTo(sway - rx, bot); ctx.quadraticCurveTo(sway - rx * 0.98, bot + 14, sway - rx * 0.6, bot + 13); ctx.quadraticCurveTo(sway, bot + 20, sway + rx * 0.6, bot + 13); ctx.quadraticCurveTo(sway + rx * 0.98, bot + 14, sway + rx, bot); ctx.stroke(); }
   ctx.restore(); S(cap, 1.1);
+  if (cream && !P.outfit || cream && P.outfit === 'normal') { ctx.save(); ctx.fillStyle = SH.gold; L.star(ctx, sway + rx * 0.3, top + h * 0.2, 16, 4, 0.38); ctx.fill(); ctx.restore(); }
   // brazos
   const ay = bot * 0.62, arm = (side, deg) => { const sx = side * sw * 1.02, a = side * (-(deg || 0) * Math.PI / 180) + side * 0.45; ctx.save(); ctx.translate(sx, ay); ctx.rotate(a);
     const p = rr(-11, 0, 22, 48, 11); F(p, sleeve(o)); S(p, 0.8); const hd = ell(0, 48, 13, 13); F(hd, SH.stem); S(hd, 0.7); ctx.restore(); return [sx - Math.sin(a) * 52, ay + Math.cos(a) * 52]; };
