@@ -56,11 +56,11 @@ export function ganoderma(K, sk, x, y, s = 1) { const ctx = K.ctx; ctx.save(); c
   const c = new Path2D(); c.moveTo(-90, 0); c.bezierCurveTo(-100, -60, 100, -60, 90, 0); c.quadraticCurveTo(0, 20, -90, 0); c.closePath(); sk.fill(c, '#9B4A2E'); sk.stroke(c);
   ctx.save(); ctx.clip(c); ctx.globalAlpha = 0.6; ctx.strokeStyle = '#E8B86A'; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(-88, -2); ctx.quadraticCurveTo(0, 16, 88, -2); ctx.stroke(); ctx.restore(); ctx.restore(); }
 // atomizador (q: 0–1 neblina)
-export function sprayer(K, sk, x, y, s = 1, ang = 0, q = 0) { const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
+export function sprayer(K, sk, x, y, s = 1, ang = 0, q = 0, flip = false) { const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(flip ? -s : s, s);
   const b = rr(-34, -10, 68, 110, 16); sk.fill(b, '#CFE3D2'); sk.stroke(b); const lv = rr(-28, 30, 56, 64, 12); ctx.save(); ctx.globalAlpha = 0.5; ctx.fillStyle = '#9FC7D6'; ctx.fill(lv); ctx.restore();
   const n = rr(-18, -40, 36, 32, 6); sk.fill(n, Z.green); sk.stroke(n, 0.8); const h = new Path2D(); h.moveTo(-18, -40); h.lineTo(-30, -40); h.lineTo(-30, -52); h.lineTo(26, -52); h.lineTo(26, -40); sk.stroke(h, 0.8);
   const tr = new Path2D(); tr.moveTo(10, -24); tr.quadraticCurveTo(26, -6, 14, 6); sk.stroke(tr, 0.7);
-  if (q > 0) { ctx.save(); ctx.fillStyle = '#CFE6F0'; for (let i = 0; i < 26; i++) { const a = -0.35 + (i % 7) * 0.1, d = 30 + ((i * 37) % 120) * q; ctx.globalAlpha = (1 - d / 170) * 0.9; ctx.beginPath(); ctx.arc(30 + Math.cos(a) * d, -46 + Math.sin(a) * d, 3 + (i % 3), 0, 7); ctx.fill(); } ctx.restore(); }
+  if (q > 0) { ctx.save(); ctx.fillStyle = '#CFE6F0'; for (let i = 0; i < 44; i++) { const a = -0.3 + (i % 7) * 0.09, d = 30 + ((i * 37) % 230) * (0.4 + 0.6 * q); ctx.globalAlpha = (1 - d / 290) * 0.95; ctx.beginPath(); ctx.arc(30 + Math.cos(a) * d, -46 + Math.sin(a) * d, 3 + (i % 3), 0, 7); ctx.fill(); } ctx.restore(); }
   ctx.restore(); }
 export function scissors(K, x, y, s = 1, open = 0.3, ang = 0) { const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s); ctx.lineWidth = 6; ctx.strokeStyle = Z.ink;
   for (const sg of [-1, 1]) { ctx.save(); ctx.rotate(sg * open); ctx.fillStyle = '#C9CFC4'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(90, sg * -6); ctx.lineTo(0, sg * 10); ctx.closePath(); ctx.fill(); ctx.stroke();
