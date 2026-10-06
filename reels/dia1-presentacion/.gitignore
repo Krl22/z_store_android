@@ -1,0 +1,7 @@
+node_modules
+stills/
+qa/
+sfx.json
+audio/_*
+_*.mp4
+__pycache__/
