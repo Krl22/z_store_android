@@ -4,7 +4,7 @@ import zeta from './zeta.js';
 import { shroomyAt } from './shroomy.js';
 
 // forma, color y vestuario por defecto del personaje (video.js los fija)
-export const CHAR = { shape: 'clasico', tone: 'dorado', outfit: 'normal' };
+export const CHAR = { outfit: 'rey' };
 
 export default {
   ...zeta, id: 'zetadia1', name: 'Zeta acuarela · mascota dorada',

@@ -21,7 +21,7 @@
 Sin precios, sin afirmaciones de salud, sin datos inventados. Empaque de las cajas genérico (no confirmado).
 
 ## Pendiente de Carlos
-Nombre, forma (A/B/C), color del sombrero (dorado entero o crema con ribete dorado) y vestuario. Se fijan arriba en `video.js` (`NAME`, `CHAR`).
+Nombre final (se fija en `video.js`, `NAME`). Personaje v2 según la referencia de Carlos: sombrero dorado brillante, corona, capa, pañuelo verde, botitas y varita (`CHAR.outfit = 'rey'`).
 
 ## Render
 `CHROME_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome node render.mjs --scenes` (QA) · `node render.mjs _video.mp4` → `python3 sfx_mix.py ...` → ffmpeg.

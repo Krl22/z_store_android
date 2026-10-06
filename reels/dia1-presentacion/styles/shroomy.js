@@ -1,117 +1,122 @@
-// Mascota de Zeta Dorada: un champiñón de sombrero dorado, robusto y redondo, con carita en el sombrero.
-// Forma de champiñón a propósito: nada de sombrero cónico con tallo delgado (no debe parecer un hongo no comestible),
-// sin puntos en el sombrero (ni Amanita ni personajes con derechos de autor).
-// Local: pies en y=0, ~235 u de alto. pose (igual que Pompón): hop, sx, sy, rot, flip, look, eyes ('dot'|'happy'|'closed'|'wide'),
-// mouth ('smile'|'o'|'grin'), armL, armR (grados, + = arriba), shake, shape ('clasico'|'portobello'|'bebe'), outfit.
+// Mascota de Zeta Dorada: hongo de sombrero dorado brillante, cuerpo crema gordito con carita, en acuarela.
+// Referencia de Carlos: sombrero en cúpula con lunares claros y brillos, laminillas visibles, corona, capa dorada,
+// pañuelo verde con estrella y botitas doradas. Diseño propio (nada de personajes con derechos de autor).
+// Local: pies en y=0, ~275 u hasta la cúpula (la corona sube más). pose: hop, sx, sy, rot, flip, look,
+// eyes ('dot'|'happy'|'closed'|'wide'), mouth ('open'|'smile'|'o'), armL, armR (grados, + = arriba), shake, wand, outfit.
 import * as L from '../engine/lib.js';
 import { Z } from './zeta.js';
 export { Z };
 
 const boil = K => Math.floor(K.t * 8);
-export const SH = { gold: '#E8BD47', goldDeep: '#C9962B', goldLight: '#FBE9A6', stem: '#FBF4E2', stemShade: '#EADFC6', gill: '#EBDCB9', straw: '#E6C681', kraft: '#CDA678' };
-const SHAPES = {
-  clasico: { rx: 112, top: -238, bot: -104, sw: 44 },
-  portobello: { rx: 140, top: -206, bot: -100, sw: 40 },
-  bebe: { rx: 100, top: -226, bot: -84, sw: 48 },
-};
-export const OUTFITS = ['normal', 'chef', 'jardinero', 'chullo', 'repartidor', 'elegante'];
+export const SH = { gold: '#E9B43A', goldDeep: '#C98A20', goldLight: '#FFEFA0', spot: '#FBE08A', body: '#FBF1DD', bodyShade: '#EAD6B0', gill: '#F1DFB8',
+  line: '#6B4521', blush: '#F4A9A0', eye: '#3A2618', mouth: '#8B3A2A', kraft: '#CDA678', straw: '#E6C681', boot: '#EDB93F' };
+export const OUTFITS = ['rey', 'natural', 'chef', 'jardinero', 'chullo', 'repartidor'];
+const CAP = { rx: 124, ry: 16, cy: -170, top: -284 }, NECK = -58;
 
 const rr = (x, y, w, h, r) => { const p = new Path2D(); p.roundRect(x, y, w, h, r); return p; };
 const ell = (x, y, rx, ry, a = 0) => { const p = new Path2D(); p.ellipse(x, y, rx, ry, a, 0, 7); return p; };
+function star(ctx, x, y, r, n = 5, k = 0.45) { ctx.beginPath(); for (let i = 0; i < n * 2; i++) { const a = -Math.PI / 2 + i * Math.PI / n, q = i % 2 ? r * k : r; ctx.lineTo(x + Math.cos(a) * q, y + Math.sin(a) * q); } ctx.closePath(); }
 
 export function drawShroomy(ctx, F, S, P = {}, t = 0) {
-  const g = SHAPES[P.shape] || SHAPES.clasico, { rx, top, bot, sw } = g, o = P.outfit || 'normal';
-  const lk = P.look || [0, 0], sway = (P.shake || 0) * Math.sin(t * 30) * 3;
+  const o = P.outfit || 'rey', lk = P.look || [0, 0], sway = (P.shake || 0) * Math.sin(t * 30) * 3;
   ctx.lineJoin = ctx.lineCap = 'round';
-  // piecitos
-  for (const fx of [-sw * 0.6, sw * 0.6]) F(ell(fx, -7, 21, 11), SH.stemShade), S(ell(fx, -7, 21, 11), 0.8);
-  // tallo-cuerpo: barrilito
-  const st = new Path2D(); st.moveTo(-sw * 0.92, -2); st.bezierCurveTo(-sw * 1.18, bot * 0.4, -sw * 1.08, bot * 0.8, -sw * 0.82, bot - 4);
-  st.lineTo(sw * 0.82, bot - 4); st.bezierCurveTo(sw * 1.08, bot * 0.8, sw * 1.18, bot * 0.4, sw * 0.92, -2); st.quadraticCurveTo(0, 8, -sw * 0.92, -2); st.closePath();
-  F(st, SH.stem); S(st, 1);
-  // ropa del cuerpo (debajo de los brazos)
-  body(ctx, F, S, o, g);
-  // laminillas bajo el borde
-  const gl = ell(sway, bot + 6, rx * 0.84, 17); F(gl, SH.gill); S(gl, 0.6);
-  ctx.save(); ctx.clip(gl); ctx.globalAlpha = 0.35; for (let k = -10; k <= 10; k++) { const p = new Path2D(); p.moveTo(sway + k * rx * 0.02, bot + 4); p.lineTo(sway + k * rx * 0.085, bot + 24); S(p, 0.4); } ctx.restore();
-  // sombrero dorado (cúpula lisa)
-  const cap = new Path2D(), h = bot - top;
-  cap.moveTo(sway - rx, bot); cap.bezierCurveTo(sway - rx * 1.03, bot - h * 0.78, sway - rx * 0.56, top, sway, top);
-  cap.bezierCurveTo(sway + rx * 0.56, top, sway + rx * 1.03, bot - h * 0.78, sway + rx, bot);
-  cap.quadraticCurveTo(sway + rx * 0.98, bot + 14, sway + rx * 0.6, bot + 13); cap.quadraticCurveTo(sway, bot + 20, sway - rx * 0.6, bot + 13); cap.quadraticCurveTo(sway - rx * 0.98, bot + 14, sway - rx, bot); cap.closePath();
-  const cream = P.tone === 'crema', cc = cream ? { base: '#F4EAD0', deep: '#C9B48A', light: '#FFFDF4' } : { base: SH.gold, deep: SH.goldDeep, light: SH.goldLight };
-  F(cap, cc.base);
+  // capa (detrás de todo)
+  if (o === 'rey') { const fl = Math.sin(t * 2.4) * 5, c = new Path2D();
+    c.moveTo(-46, -128); c.quadraticCurveTo(-92 - fl, -70, -98 - fl, -8); c.quadraticCurveTo(-50, 2, 0, 0); c.quadraticCurveTo(50, 2, 98 + fl, -8); c.quadraticCurveTo(92 + fl, -70, 46, -128); c.closePath();
+    F(c, SH.gold); ctx.save(); ctx.clip(c); ctx.globalAlpha = 0.35; ctx.fillStyle = SH.goldDeep; ctx.fillRect(-120, -60, 240, 70); ctx.restore(); S(c, 0.9); }
+  // cuerpo gordito
+  const body = new Path2D(); body.moveTo(-58, -178); body.bezierCurveTo(-20, -188, 20, -188, 58, -178); body.bezierCurveTo(80, -130, 82, -70, 74, -42); body.bezierCurveTo(68, -12, 42, -3, 0, -3);
+  body.bezierCurveTo(-42, -3, -68, -12, -74, -42); body.bezierCurveTo(-82, -70, -80, -130, -58, -178); body.closePath();
+  F(body, SH.body); ctx.save(); ctx.clip(body); ctx.globalAlpha = 0.45; ctx.fillStyle = SH.bodyShade; ctx.beginPath(); ctx.ellipse(34, -10, 70, 50, 0, 0, 7); ctx.fill(); ctx.restore(); S(body, 1);
+  // pies o botitas
+  for (const fx of [-30, 30]) {
+    if (o === 'rey') { const b = ell(fx, -4, 27, 15); F(b, SH.boot); S(b, 0.8); const cf = new Path2D(); cf.moveTo(fx - 22, -12); cf.quadraticCurveTo(fx, -4, fx + 22, -12); ctx.save(); ctx.lineWidth = 6; ctx.strokeStyle = SH.goldLight; ctx.stroke(cf); ctx.restore(); }
+    else { const f = ell(fx, -7, 23, 12); F(f, SH.bodyShade); S(f, 0.8); } }
+  // ropa del cuerpo
+  clothes(ctx, F, S, o, t);
+  // laminillas (se ven por debajo del sombrero)
+  const { rx, ry, cy, top } = CAP, gl = ell(sway, cy, rx, ry); F(gl, SH.gill);
+  ctx.save(); ctx.clip(gl); ctx.globalAlpha = 0.5; for (let i = 0; i <= 20; i++) { const a = Math.PI * (0.05 + 0.9 * i / 20), p = new Path2D(); p.moveTo(sway + Math.cos(a) * 30, cy + Math.sin(a) * 6); p.lineTo(sway + Math.cos(a) * rx, cy + Math.sin(a) * ry); S(p, 0.35); } ctx.restore();
+  S(gl, 0.8);
+  // sombrero dorado (cúpula brillante con lunares claros)
+  const cap = new Path2D(); cap.moveTo(sway - rx, cy); cap.bezierCurveTo(sway - rx - 6, cy - 84, sway - rx * 0.55, top, sway, top); cap.bezierCurveTo(sway + rx * 0.55, top, sway + rx + 6, cy - 84, sway + rx, cy);
+  cap.ellipse(sway, cy, rx, ry, 0, 0, Math.PI, true); cap.closePath();
+  F(cap, SH.gold);
   ctx.save(); ctx.clip(cap);
-  ctx.globalAlpha = 0.32; ctx.fillStyle = cc.deep; ctx.beginPath(); ctx.ellipse(sway, bot + 26, rx * 1.15, h * 0.42, 0, 0, 7); ctx.fill();
-  ctx.globalAlpha = 0.75; ctx.fillStyle = cc.light; ctx.beginPath(); ctx.ellipse(sway - rx * 0.42, top + h * 0.3, rx * 0.26, h * 0.12, -0.5, 0, 7); ctx.fill();
-  ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(sway - rx * 0.12, top + h * 0.17, 6, 0, 7); ctx.fill();
-  if (cream) { ctx.globalAlpha = 1; ctx.strokeStyle = SH.gold; ctx.lineWidth = 16; ctx.beginPath(); ctx.moveTo(sway - rx, bot); ctx.quadraticCurveTo(sway - rx * 0.98, bot + 14, sway - rx * 0.6, bot + 13); ctx.quadraticCurveTo(sway, bot + 20, sway + rx * 0.6, bot + 13); ctx.quadraticCurveTo(sway + rx * 0.98, bot + 14, sway + rx, bot); ctx.stroke(); }
-  ctx.restore(); S(cap, 1.1);
-  if (cream && !P.outfit || cream && P.outfit === 'normal') { ctx.save(); ctx.fillStyle = SH.gold; L.star(ctx, sway + rx * 0.3, top + h * 0.2, 16, 4, 0.38); ctx.fill(); ctx.restore(); }
-  // brazos
-  const ay = bot * 0.62, arm = (side, deg) => { const sx = side * sw * 1.02, a = side * (-(deg || 0) * Math.PI / 180) + side * 0.45; ctx.save(); ctx.translate(sx, ay); ctx.rotate(a);
-    const p = rr(-11, 0, 22, 48, 11); F(p, sleeve(o)); S(p, 0.8); const hd = ell(0, 48, 13, 13); F(hd, SH.stem); S(hd, 0.7); ctx.restore(); return [sx - Math.sin(a) * 52, ay + Math.cos(a) * 52]; };
-  const hL = arm(-1, P.armL), hR = arm(1, P.armR);
-  // carita en el sombrero
-  const fy = bot - h * 0.36, k = rx / 112, ex = sway + lk[0] * 7, ey = fy + lk[1] * 6, es = P.eyes || 'dot';
-  ctx.fillStyle = Z.ink; ctx.strokeStyle = Z.ink;
-  for (const x0 of [-32 * k, 32 * k]) { const x = x0 + ex, y = ey; ctx.beginPath();
-    if (es === 'happy') { ctx.lineWidth = 5.5; ctx.moveTo(x - 10, y + 3); ctx.quadraticCurveTo(x, y - 9, x + 10, y + 3); ctx.stroke(); continue; }
-    if (es === 'closed') { ctx.lineWidth = 5; ctx.moveTo(x - 10, y); ctx.quadraticCurveTo(x, y + 7, x + 10, y); ctx.stroke(); continue; }
-    const m = es === 'wide' ? 1.3 : 1; ctx.ellipse(x, y, 8 * m, 10 * m, 0, 0, 7); ctx.fill(); ctx.save(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 2.5, y - 3.5, 2.8 * m, 0, 7); ctx.fill(); ctx.restore(); }
-  ctx.save(); ctx.globalAlpha = 0.4; ctx.fillStyle = '#F2B3A6'; for (const x of [-60 * k, 60 * k]) { ctx.beginPath(); ctx.ellipse(x + ex, ey + 22, 15, 9, 0, 0, 7); ctx.fill(); } ctx.restore();
-  { const m = new Path2D(), my = ey + 20; if (P.mouth === 'o') m.ellipse(ex, my + 4, 8, 10, 0, 0, 7); else if (P.mouth === 'grin') { m.moveTo(ex - 15, my); m.quadraticCurveTo(ex, my + 20, ex + 15, my); m.closePath(); ctx.fillStyle = '#7A3B2A'; ctx.fill(m); } else { m.moveTo(ex - 12, my); m.quadraticCurveTo(ex, my + 12, ex + 12, my); } S(m, 0.9); }
-  // ropa de la cabeza (encima del sombrero)
-  const hatTop = head(ctx, F, S, o, g, sway);
-  return { handL: hL, handR: hR, top: [0, hatTop], center: [0, (top + bot) / 2] };
+  const gr = ctx.createRadialGradient(sway - 45, top + 40, 10, sway - 20, top + 70, 190); gr.addColorStop(0, SH.goldLight); gr.addColorStop(0.45, '#F2C64A'); gr.addColorStop(1, SH.goldDeep);
+  ctx.globalAlpha = 0.85; ctx.fillStyle = gr; ctx.fillRect(sway - rx - 20, top - 10, rx * 2 + 40, cy - top + 40);
+  ctx.globalAlpha = 0.95; ctx.globalAlpha = 0.7; for (const [x, y, a, b] of [[-62, -222, 15, 10], [8, -262, 11, 7], [60, -226, 16, 10], [96, -192, 8, 6], [-92, -190, 8, 6]]) { const sp = ell(sway + x, y, a, b, 0.2); ctx.fillStyle = SH.spot; ctx.fill(sp); }
+  ctx.globalAlpha = 0.65; ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.ellipse(sway - 52, top + 34, 28, 11, -0.55, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(sway - 18, top + 22, 5, 0, 7); ctx.fill();
+  ctx.restore();
+  { const rim = new Path2D(); rim.ellipse(sway, cy, rx, ry, 0, 0.05, Math.PI - 0.05); ctx.save(); ctx.lineWidth = 9; ctx.strokeStyle = SH.goldDeep; ctx.globalAlpha = 0.85; ctx.stroke(rim); ctx.restore(); }
+  S(cap, 1.1);
+  // brillitos
+  ctx.save(); ctx.fillStyle = '#FFFFFF'; for (const [x, y, r, ph] of [[42, -270, 10, 0], [-96, -204, 8, 2], [104, -230, 7, 4]]) { ctx.globalAlpha = 0.55 + 0.45 * Math.sin(t * 4 + ph); star(ctx, sway + x, y, r, 4, 0.3); ctx.fill(); } ctx.restore();
+  // varita con un honguito (debajo de la mano)
+  const ay = -100, armAt = (side, deg) => { const sx = side * 60, a = side * (-(deg || 0) * Math.PI / 180) + side * 0.5; return { sx, a, hand: [sx - Math.sin(a) * 46, ay + Math.cos(a) * 46] }; };
+  const AL = armAt(-1, P.armL), AR = armAt(1, P.armR);
+  if (P.wand) { const [hx, hy] = AR.hand, st = new Path2D(); st.moveTo(hx, hy + 14); st.lineTo(hx + 10, hy - 74); ctx.save(); ctx.lineWidth = 7; ctx.strokeStyle = SH.line; ctx.stroke(st); ctx.restore();
+    const mc = new Path2D(); mc.moveTo(hx - 14, hy - 72); mc.quadraticCurveTo(hx + 10, hy - 112, hx + 34, hy - 76); mc.closePath(); F(mc, SH.gold); S(mc, 0.7);
+    ctx.save(); ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * 5); ctx.fillStyle = '#FFFFFF'; star(ctx, hx + 36, hy - 104, 9, 4, 0.3); ctx.fill(); ctx.restore(); }
+  // bracitos
+  for (const A of [AL, AR]) { ctx.save(); ctx.translate(A.sx, ay); ctx.rotate(A.a); const p = rr(-12, 0, 24, 44, 12); F(p, SH.body); S(p, 0.8); const hd = ell(0, 46, 14, 14); F(hd, SH.body); S(hd, 0.7); ctx.restore(); }
+  // carita en el cuerpo
+  const ex = sway + lk[0] * 7, ey = lk[1] * 6, es = P.eyes || 'dot';
+  ctx.fillStyle = SH.eye; ctx.strokeStyle = SH.eye;
+  for (const x0 of [-30, 30]) { const x = x0 + ex, y = -116 + ey; ctx.beginPath();
+    if (es === 'happy') { ctx.lineWidth = 6; ctx.moveTo(x - 11, y + 4); ctx.quadraticCurveTo(x, y - 10, x + 11, y + 4); ctx.stroke(); continue; }
+    if (es === 'closed') { ctx.lineWidth = 5.5; ctx.moveTo(x - 11, y); ctx.quadraticCurveTo(x, y + 8, x + 11, y); ctx.stroke(); continue; }
+    const m = es === 'wide' ? 1.2 : 1; ctx.ellipse(x, y, 12 * m, 15 * m, 0, 0, 7); ctx.fill(); ctx.save(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 4, y - 5, 4.5 * m, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x - 3.5, y + 5, 2 * m, 0, 7); ctx.fill(); ctx.restore(); }
+  ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = SH.blush; for (const x of [-52, 52]) { ctx.beginPath(); ctx.ellipse(x + ex, -94 + ey, 14, 8, 0, 0, 7); ctx.fill(); } ctx.restore();
+  { const my = -94 + ey, mo = P.mouth || 'open', m = new Path2D();
+    if (mo === 'o') { m.ellipse(ex, my + 4, 8, 10, 0, 0, 7); ctx.fillStyle = SH.mouth; ctx.fill(m); }
+    else if (mo === 'smile') { m.moveTo(ex - 12, my); m.quadraticCurveTo(ex, my + 12, ex + 12, my); }
+    else { m.moveTo(ex - 16, my - 2); m.quadraticCurveTo(ex, my + 24, ex + 16, my - 2); m.closePath(); ctx.fillStyle = SH.mouth; ctx.fill(m);
+      ctx.save(); ctx.clip(m); ctx.fillStyle = '#E98C86'; ctx.beginPath(); ctx.ellipse(ex, my + 14, 9, 6, 0, 0, 7); ctx.fill(); ctx.restore(); }
+    S(m, 0.8); }
+  // ropa de la cabeza
+  const hatTop = hats(ctx, F, S, o, sway, t);
+  return { handL: AL.hand, handR: AR.hand, top: [0, hatTop], center: [0, -150] };
 }
 
-function sleeve(o) { return { jardinero: Z.green, repartidor: Z.green, chullo: SH.stem }[o] || SH.stem; }
-
-function body(ctx, F, S, o, g) {
-  const { bot, sw } = g;
-  if (o === 'chef') { const a = rr(-sw * 0.78, bot * 0.72, sw * 1.56, -bot * 0.66, 10); F(a, '#FFFFFF'); S(a, 0.8); const pk = rr(-14, bot * 0.42, 28, 18, 4); S(pk, 0.5); }
-  if (o === 'jardinero') { const a = rr(-sw * 0.8, bot * 0.62, sw * 1.6, -bot * 0.62 - 4, 12); F(a, Z.green); S(a, 0.8);
-    for (const s of [-1, 1]) { const p = new Path2D(); p.moveTo(s * sw * 0.6, bot * 0.62); p.lineTo(s * sw * 0.55, bot + 2); ctx.save(); ctx.lineWidth = 9; ctx.strokeStyle = Z.green; ctx.stroke(p); ctx.restore(); ctx.fillStyle = Z.gold; ctx.beginPath(); ctx.arc(s * sw * 0.6, bot * 0.6, 5, 0, 7); ctx.fill(); }
-    const pk = rr(-16, bot * 0.5, 32, 22, 5); F(pk, Z.deep); S(pk, 0.5); }
-  if (o === 'chullo') { // chalina verde con flecos
-    const sc = rr(-sw * 0.95, bot + 22, sw * 1.9, 24, 12); F(sc, Z.green); S(sc, 0.8); const tail = rr(sw * 0.2, bot + 34, 24, 56, 8); F(tail, Z.green); S(tail, 0.7);
-    ctx.save(); ctx.strokeStyle = Z.gold; ctx.lineWidth = 4; for (const y of [bot + 54, bot + 70]) { ctx.beginPath(); ctx.moveTo(sw * 0.2 + 3, y); ctx.lineTo(sw * 0.2 + 21, y); ctx.stroke(); } ctx.restore();
-    ctx.save(); ctx.strokeStyle = Z.green; ctx.lineWidth = 3; for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(sw * 0.2 + 4 + i * 5.5, bot + 90); ctx.lineTo(sw * 0.2 + 4 + i * 5.5, bot + 102); ctx.stroke(); } ctx.restore(); }
-  if (o === 'repartidor') { // bolso kraft cruzado
-    const p = new Path2D(); p.moveTo(-sw * 0.7, bot + 6); p.lineTo(sw * 0.75, bot * 0.3); ctx.save(); ctx.lineWidth = 8; ctx.strokeStyle = Z.deep; ctx.stroke(p); ctx.restore();
-    const b = rr(sw * 0.35, bot * 0.42, 52, 42, 8); F(b, SH.kraft); S(b, 0.8); const lb = rr(sw * 0.35 + 10, bot * 0.42 + 12, 32, 16, 4); ctx.fillStyle = Z.green; ctx.fill(lb); }
-  if (o === 'elegante') { // moño verde con botón dorado
-    for (const s of [-1, 1]) { const w = new Path2D(); w.moveTo(0, bot + 40); w.lineTo(s * 34, bot + 26); w.lineTo(s * 34, bot + 54); w.closePath(); F(w, Z.green); S(w, 0.7); }
-    const kn = ell(0, bot + 40, 9, 9); F(kn, Z.deep); S(kn, 0.6); ctx.fillStyle = Z.gold; for (const y of [bot * 0.42, bot * 0.2]) { ctx.beginPath(); ctx.arc(0, y, 5, 0, 7); ctx.fill(); } }
+function clothes(ctx, F, S, o, t) {
+  if (o === 'rey' || o === 'chullo') { // pañuelo verde con estrella dorada (rey) o chalina con flecos (chullo)
+    const sc = new Path2D(); sc.moveTo(-66, NECK - 12); sc.quadraticCurveTo(0, NECK + 8, 66, NECK - 12); sc.lineTo(68, NECK + 4); sc.quadraticCurveTo(0, NECK + 26, -68, NECK + 4); sc.closePath(); F(sc, Z.green); S(sc, 0.8);
+    if (o === 'rey') { for (const s of [-1, 1]) { const tip = new Path2D(); tip.moveTo(s * 60, NECK - 10); tip.lineTo(s * 96, NECK + 18 + Math.sin(t * 3 + s) * 3); tip.lineTo(s * 54, NECK + 6); tip.closePath(); F(tip, Z.green); S(tip, 0.7); }
+      ctx.save(); star(ctx, 0, NECK + 8, 16); ctx.fillStyle = SH.boot; ctx.fill(); ctx.restore(); const sp = new Path2D(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, q = i % 2 ? 7.2 : 16; sp[i ? 'lineTo' : 'moveTo'](Math.cos(a) * q, NECK + 8 + Math.sin(a) * q); } sp.closePath(); S(sp, 0.6); }
+    else { const tail = rr(22, NECK, 26, 58, 8); F(tail, Z.green); S(tail, 0.7); ctx.save(); ctx.strokeStyle = SH.boot; ctx.lineWidth = 4; for (const y of [NECK + 20, NECK + 36]) { ctx.beginPath(); ctx.moveTo(25, y); ctx.lineTo(45, y); ctx.stroke(); } ctx.restore(); } }
+  if (o === 'chef') { const a = rr(-50, -50, 100, 42, 10); F(a, '#FFFFFF'); S(a, 0.8); const ti = new Path2D(); ti.moveTo(-50, -46); ti.lineTo(-66, -56); ti.moveTo(50, -46); ti.lineTo(66, -56); S(ti, 0.6); }
+  if (o === 'jardinero') { const a = rr(-52, -56, 104, 50, 12); F(a, Z.green); S(a, 0.8); ctx.fillStyle = SH.boot; for (const x of [-38, 38]) { ctx.beginPath(); ctx.arc(x, -48, 5, 0, 7); ctx.fill(); } const pk = rr(-16, -42, 32, 22, 5); F(pk, Z.deep); S(pk, 0.5); }
+  if (o === 'repartidor') { const p = new Path2D(); p.moveTo(-62, -66); p.lineTo(46, -22); ctx.save(); ctx.lineWidth = 8; ctx.strokeStyle = Z.deep; ctx.stroke(p); ctx.restore(); const b = rr(26, -40, 56, 44, 8); F(b, SH.kraft); S(b, 0.8); const lb = rr(36, -28, 36, 16, 4); ctx.fillStyle = Z.green; ctx.fill(lb); }
 }
 
-function head(ctx, F, S, o, g, x) {
-  const { rx, top } = g;
-  if (o === 'chef') { const b = top + 18, h = new Path2D(); h.moveTo(x - 44, b); h.bezierCurveTo(x - 76, b - 10, x - 72, b - 66, x - 38, b - 62); h.bezierCurveTo(x - 32, b - 96, x + 32, b - 98, x + 40, b - 64); h.bezierCurveTo(x + 74, b - 68, x + 78, b - 10, x + 44, b); h.closePath(); F(h, '#FFFFFF'); S(h);
-    const bd = rr(x - 46, b - 12, 92, 26, 6); F(bd, '#FFFFFF'); S(bd, 0.9); return b - 96; }
-  if (o === 'jardinero') { const y = top + 24, br = ell(x, y, rx * 0.98, 20); F(br, SH.straw); S(br);
-    const cr = new Path2D(); cr.moveTo(x - rx * 0.48, y); cr.bezierCurveTo(x - rx * 0.5, y - 64, x + rx * 0.5, y - 64, x + rx * 0.48, y); cr.closePath(); F(cr, SH.straw); S(cr);
-    const band = new Path2D(); band.moveTo(x - rx * 0.48, y - 4); band.quadraticCurveTo(x, y - 12, x + rx * 0.48, y - 4); ctx.save(); ctx.lineWidth = 11; ctx.strokeStyle = Z.green; ctx.stroke(band); ctx.restore();
-    const lf = new Path2D(); lf.moveTo(x + rx * 0.32, y - 10); lf.quadraticCurveTo(x + rx * 0.5, y - 44, x + rx * 0.62, y - 30); lf.quadraticCurveTo(x + rx * 0.5, y - 14, x + rx * 0.32, y - 10); F(lf, '#6E9A5B'); S(lf, 0.6); return y - 60; }
-  if (o === 'chullo') { const y = top + 44; // gorro tejido con orejeras y pompón
-    const cp = new Path2D(); cp.moveTo(x - rx * 0.72, y); cp.bezierCurveTo(x - rx * 0.74, top - 30, x + rx * 0.74, top - 30, x + rx * 0.72, y); cp.closePath(); F(cp, Z.deep); S(cp);
-    ctx.save(); ctx.clip(cp); ctx.lineWidth = 6; ctx.strokeStyle = SH.stem; ctx.beginPath(); for (let i = 0; i <= 14; i++) { const xx = x - rx * 0.75 + i * rx * 0.107; ctx.lineTo(xx, y - 22 - (i % 2) * 14); } ctx.stroke();
-    ctx.strokeStyle = Z.gold; ctx.beginPath(); for (let i = 0; i <= 14; i++) { const xx = x - rx * 0.75 + i * rx * 0.107; ctx.lineTo(xx, top + 4 - (i % 2) * 12); } ctx.stroke(); ctx.restore(); S(cp);
-    for (const s of [-1, 1]) { const f = new Path2D(); f.moveTo(x + s * rx * 0.72, y - 6); f.lineTo(x + s * rx * 0.74, y + 34); f.lineTo(x + s * rx * 0.5, y - 2); f.closePath(); F(f, Z.deep); S(f, 0.7);
-      const c = new Path2D(); c.moveTo(x + s * rx * 0.73, y + 34); c.lineTo(x + s * rx * 0.74, y + 66); ctx.save(); ctx.lineWidth = 4; ctx.strokeStyle = Z.ink; ctx.stroke(c); ctx.restore(); const pm = ell(x + s * rx * 0.74, y + 72, 9, 9); F(pm, Z.gold); S(pm, 0.5); }
-    const pp = ell(x, top - 30, 18, 18); F(pp, Z.gold); S(pp, 0.7); return top - 48; }
-  if (o === 'repartidor') { const y = top + 30; const cp = new Path2D(); cp.moveTo(x - rx * 0.58, y); cp.bezierCurveTo(x - rx * 0.6, top - 26, x + rx * 0.6, top - 26, x + rx * 0.58, y); cp.closePath(); F(cp, Z.green); S(cp);
-    const v = new Path2D(); v.moveTo(x + rx * 0.2, y - 2); v.quadraticCurveTo(x + rx * 0.8, y - 10, x + rx * 0.98, y + 8); v.quadraticCurveTo(x + rx * 0.6, y + 14, x + rx * 0.2, y + 6); v.closePath(); F(v, Z.deep); S(v, 0.8);
-    const bt = ell(x, top - 18, 7, 5); F(bt, Z.gold); L.text(ctx, 'Z', x - rx * 0.12, y - 22, { font: '700 34px Fraunces', color: Z.gold, align: 'center' }); return top - 26; }
+function hats(ctx, F, S, o, x, t) {
+  const { rx, top } = CAP;
+  if (o === 'rey') { ctx.save(); ctx.translate(x + 36, top + 8); ctx.rotate(0.22); ctx.scale(0.72, 0.72);
+    const c = new Path2D(); c.moveTo(-36, 0); c.lineTo(-38, -40); c.lineTo(-18, -20); c.lineTo(0, -50); c.lineTo(18, -20); c.lineTo(38, -40); c.lineTo(36, 0); c.closePath(); F(c, SH.boot); S(c, 0.9);
+    const b = rr(-38, -6, 76, 14, 5); F(b, SH.goldLight); S(b, 0.7); for (const [px, py] of [[-38, -40], [0, -50], [38, -40]]) { const ball = ell(px, py - 4, 6, 6); F(ball, SH.goldLight); S(ball, 0.5); }
+    ctx.fillStyle = '#EAF4F2'; ctx.beginPath(); ctx.moveTo(0, -24); ctx.lineTo(8, -14); ctx.lineTo(0, -4); ctx.lineTo(-8, -14); ctx.closePath(); ctx.fill(); ctx.restore(); return top - 56; }
+  if (o === 'chef') { const b = top + 20, h = new Path2D(); h.moveTo(x - 46, b); h.bezierCurveTo(x - 80, b - 10, x - 76, b - 70, x - 40, b - 66); h.bezierCurveTo(x - 34, b - 100, x + 34, b - 102, x + 42, b - 68); h.bezierCurveTo(x + 78, b - 72, x + 82, b - 10, x + 46, b); h.closePath(); F(h, '#FFFFFF'); S(h);
+    const bd = rr(x - 48, b - 12, 96, 26, 6); F(bd, '#FFFFFF'); S(bd, 0.9); return b - 100; }
+  if (o === 'jardinero') { const y = top + 30, br = ell(x, y, rx * 0.9, 20); F(br, SH.straw); S(br);
+    const cr = new Path2D(); cr.moveTo(x - rx * 0.45, y); cr.bezierCurveTo(x - rx * 0.47, y - 64, x + rx * 0.47, y - 64, x + rx * 0.45, y); cr.closePath(); F(cr, SH.straw); S(cr);
+    const band = new Path2D(); band.moveTo(x - rx * 0.45, y - 4); band.quadraticCurveTo(x, y - 12, x + rx * 0.45, y - 4); ctx.save(); ctx.lineWidth = 11; ctx.strokeStyle = Z.green; ctx.stroke(band); ctx.restore(); return y - 60; }
+  if (o === 'chullo') { const y = top + 50, cp = new Path2D(); cp.moveTo(x - rx * 0.66, y); cp.bezierCurveTo(x - rx * 0.68, top - 30, x + rx * 0.68, top - 30, x + rx * 0.66, y); cp.closePath(); F(cp, Z.deep); S(cp);
+    ctx.save(); ctx.clip(cp); ctx.lineWidth = 6; ctx.strokeStyle = SH.body; ctx.beginPath(); for (let i = 0; i <= 14; i++) ctx.lineTo(x - rx * 0.7 + i * rx * 0.1, y - 24 - (i % 2) * 14); ctx.stroke();
+    ctx.strokeStyle = SH.boot; ctx.beginPath(); for (let i = 0; i <= 14; i++) ctx.lineTo(x - rx * 0.7 + i * rx * 0.1, top + 4 - (i % 2) * 12); ctx.stroke(); ctx.restore(); S(cp);
+    for (const s of [-1, 1]) { const f = new Path2D(); f.moveTo(x + s * rx * 0.66, y - 6); f.lineTo(x + s * rx * 0.68, y + 34); f.lineTo(x + s * rx * 0.46, y - 2); f.closePath(); F(f, Z.deep); S(f, 0.7);
+      const pm = ell(x + s * rx * 0.68, y + 44, 9, 9); F(pm, SH.boot); S(pm, 0.5); }
+    const pp = ell(x, top - 30, 18, 18); F(pp, SH.boot); S(pp, 0.7); return top - 48; }
+  if (o === 'repartidor') { const y = top + 34, cp = new Path2D(); cp.moveTo(x - rx * 0.54, y); cp.bezierCurveTo(x - rx * 0.56, top - 26, x + rx * 0.56, top - 26, x + rx * 0.54, y); cp.closePath(); F(cp, Z.green); S(cp);
+    const v = new Path2D(); v.moveTo(x + rx * 0.2, y - 2); v.quadraticCurveTo(x + rx * 0.75, y - 10, x + rx * 0.92, y + 8); v.quadraticCurveTo(x + rx * 0.55, y + 14, x + rx * 0.2, y + 6); v.closePath(); F(v, Z.deep); S(v, 0.8);
+    L.text(ctx, 'Z', x - rx * 0.1, y - 22, { font: '700 34px Fraunces', color: SH.boot, align: 'center' }); return top - 26; }
   return top;
 }
 
 export function shroomyAt(K, x, y, hgt, P = {}) {
-  const ctx = K.ctx, s = hgt / 235, wf = L.washFill(ctx, 6, { alpha: 0.35, gran: 0.08, pool: 0.22 });
-  const F = (p, c) => { ctx.fillStyle = '#FFFEFA'; ctx.fill(p); wf(p, c); }, S = L.wobbleStroke(ctx, Z.ink, 4, s, boil(K));
-  const rx = (SHAPES[P.shape] || SHAPES.clasico).rx;
-  if (!P.noShadow) { ctx.save(); ctx.globalAlpha = 0.14 * (1 - L.clamp((P.hop || 0) / 250)); ctx.fillStyle = Z.ink; ctx.beginPath(); ctx.ellipse(x, y + 2, rx * 0.9 * s, 13 * s, 0, 0, 7); ctx.fill(); ctx.restore(); }
+  const ctx = K.ctx, s = hgt / 275, wf = L.washFill(ctx, 6, { alpha: 0.35, gran: 0.08, pool: 0.22 });
+  const F = (p, c) => { ctx.fillStyle = '#FFFEFA'; ctx.fill(p); wf(p, c); }, S = L.wobbleStroke(ctx, SH.line, 4, s, boil(K));
+  if (!P.noShadow) { ctx.save(); ctx.globalAlpha = 0.14 * (1 - L.clamp((P.hop || 0) / 250)); ctx.fillStyle = Z.ink; ctx.beginPath(); ctx.ellipse(x, y + 2, 105 * s, 13 * s, 0, 0, 7); ctx.fill(); ctx.restore(); }
   ctx.save(); ctx.translate(x, y - (P.hop || 0)); ctx.rotate(P.rot || 0); ctx.scale(s * (P.sx || 1) * (P.flip ? -1 : 1), s * (P.sy || 1));
   const a = drawShroomy(ctx, F, S, P, K.t);
   const m = ctx.getTransform(), tc = ([u, v]) => [m.a * u + m.c * v + m.e, m.b * u + m.d * v + m.f];

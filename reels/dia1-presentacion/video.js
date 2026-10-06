@@ -1,5 +1,5 @@
 // Zeta Dorada · Día 1 «Presentación de Zeta Dorada» · reel de ~18 s (9:16).
-// Mascota dorada (styles/shroomy.js). Sin precios, sin salud, sin crecimiento animado. Storyboard: STORYBOARD.md
+// Mascota dorada v2 con corona y capa (styles/shroomy.js). Sin precios, sin salud, sin crecimiento animado. Storyboard: STORYBOARD.md
 // Hasta tener la voz, los tiempos de escena son estimados; después se ajustan a audio/words.json.
 import * as L from './engine/lib.js';
 import { Z, SH } from './styles/shroomy.js';
@@ -7,7 +7,7 @@ import { CHAR } from './styles/zetadia1.js';
 
 // ---- decisiones pendientes de Carlos (nombre, forma, color, vestuario) ----
 export const NAME = 'Zetito';            // provisional
-Object.assign(CHAR, { shape: 'clasico', tone: 'dorado', outfit: 'normal' });
+Object.assign(CHAR, { outfit: 'rey' });
 const PHONE = '+51 928 817 018';
 
 const W = 1080, H = 1920, FLOOR = 1420, LOGO = 'assets/logo-zeta.png';
@@ -52,7 +52,7 @@ function waButton(K, x, y, c) { if (c <= 0.01) return; const ctx = K.ctx; ctx.sa
 
 export default {
   style: 'zetadia1', format: '9:16', fps: 30, camera: false, chrome: false, captions: false,
-  person: false, mascot: 'shroomy', actor: { x: 540, y: FLOOR, h: 400 },
+  person: false, mascot: 'shroomy', actor: { x: 540, y: FLOOR, h: 460 },
   scenes: [
     // 1 · HOLA — entra rebotando y saluda
     { type: 'story', dur: 4.2, bg: 'cream', say: `¡Hola! Soy ${NAME}. Te doy la bienvenida a Zeta Dorada.`,
@@ -68,7 +68,7 @@ export default {
         sparkle(K, 820, 930, 32, cl((t - 1.5) / 0.6)); sparkle(K, 260, 1000, 24, cl((t - 1.65) / 0.6)); },
       actor(t) { const q = cl((t - 0.15) / 1.1), x = L.lerp(1350, 540, E.out(q)), b = t < 1.25 ? Math.abs(Math.sin(q * Math.PI * 3)) * (1 - q * 0.7) * 160 : 0;
         const land = [0.45, 0.8, 1.1, 1.26].reduce((m, a) => m + squash(t, a - 0.05, 0.16, 0.16), 0);
-        return { x, y: FLOOR, h: 430, pose: { hop: b, sx: 1 + land, sy: 1 - land, armR: wave(t, 1.5), armL: 12, eyes: t > 1.4 ? 'happy' : 'dot', mouth: t > 1.4 ? 'grin' : 'smile', look: t < 1.3 ? [-0.5, 0] : [0, 0.1] } }; } },
+        return { x, y: FLOOR, h: 500, pose: { wand: true, hop: b, sx: 1 + land, sy: 1 - land, armR: wave(t, 1.5), armL: 12, eyes: t > 1.4 ? 'happy' : 'dot', mouth: t > 1.4 ? 'grin' : 'smile', look: t < 1.3 ? [-0.5, 0] : [0, 0.1] } }; } },
 
     // 2 · QUÉ HACEMOS — kits de autocultivo de hongos comestibles
     { type: 'story', dur: 4.8, bg: 'sage', trans: { type: 'pan', dur: 0.6 }, say: 'Hacemos kits para cultivar hongos comestibles en casa.',
@@ -80,7 +80,7 @@ export default {
         HL(K, s, 'Kits de hongos *comestibles*', { x: 60, y: 260, w: 960, h: 300 }, h.A(0.2, 0.6), { max: 120 });
         hand(K, 'para cultivar en casa', 540, 640, 70, Z.green, cl((t - 2.4) / 0.4));
         [[200, 900, 1.6], [880, 880, 1.75]].forEach(([x, y, a]) => sparkle(K, x, y, 28, cl((t - a) / 0.6))); },
-      actor(t) { return { x: 540, y: 1700, h: 380, pose: { armL: t > 1.0 ? 85 : 20, armR: 20, eyes: t > 2.4 ? 'happy' : 'dot', look: [-0.2, -0.7], hop: t > 2.3 && t < 2.6 ? Math.sin((t - 2.3) / 0.3 * Math.PI) * 24 : 0 } }; } },
+      actor(t) { return { x: 540, y: 1700, h: 440, pose: { armL: t > 1.0 ? 85 : 20, armR: 20, eyes: t > 2.4 ? 'happy' : 'dot', look: [-0.2, -0.7], hop: t > 2.3 && t < 2.6 ? Math.sin((t - 2.3) / 0.3 * Math.PI) * 24 : 0 } }; } },
 
     // 3 · CON CALMA — taza y planta; respira tranquilo (nada crece)
     { type: 'story', dur: 3.8, bg: 'sun', trans: { type: 'iris', x: 0.5, y: 1200 / H, dur: 0.6 }, say: 'Hechos con calma, como nos gusta.',
@@ -92,7 +92,7 @@ export default {
         hand(K, 'como nos gusta', 540, 650, 70, Z.green, cl((t - 1.6) / 0.5));
         leaf(K, sk, 560 + Math.sin(t * 1.1) * 120, 760 + t * 70, 0.7, Math.sin(t * 1.4) * 0.7, '#8DB07A'); },
       actor(t) { const br = Math.sin(t * 2.2) * 0.03; // respira lento
-        return { x: 540, y: 1384, h: 380, pose: { sx: 1 + br, sy: 1 - br, armL: 8, armR: 8, eyes: t > 0.6 ? 'closed' : 'dot', mouth: 'smile' } }; } },
+        return { x: 540, y: 1384, h: 440, pose: { sx: 1 + br, sy: 1 - br, armL: 8, armR: 8, eyes: t > 0.6 ? 'closed' : 'dot', mouth: 'smile' } }; } },
 
     // 4 · CIERRE — logo, «Pide por WhatsApp» y número (sin precio)
     { type: 'story', dur: 5.6, bg: 'cream', image: LOGO, trans: { type: 'fade', dur: 0.6 }, say: '¿Quieres el tuyo? Pide por WhatsApp.',
@@ -102,8 +102,8 @@ export default {
         [[110, 300, 0.2], [970, 330, 2.6], [90, 1180, -0.4], [990, 1120, 0.6]].forEach(([x, y, a], i) => leaf(K, sk, x, y + Math.sin(t * 1.5 + i) * 6, 1.1, a, i % 2 ? '#8DB07A' : '#6E9A5B'));
         if (img) { const e = E.out(cl((t - 0.1) / 0.6)), w = 760, hh = w * img.height / img.width; ctx.save(); ctx.globalAlpha = e; ctx.drawImage(img, (W - w) / 2, 250 - (1 - e) * 30, w, hh); ctx.restore(); }
         HL(K, s, '¿Quieres *el tuyo?*', { x: 60, y: 500, w: 960, h: 170 }, h.A(0.6, 0.6), { max: 110 });
-        waButton(K, 540, 820, pop(t, 1.6, 0.45));
-        const n = cl((t - 2.3) / 0.4); if (n > 0) L.text(ctx, PHONE, 540, 990, { font: '600 70px Poppins', color: Z.deep, align: 'center', alpha: n }); },
+        waButton(K, 540, 770, pop(t, 1.6, 0.45));
+        const n = cl((t - 2.3) / 0.4); if (n > 0) L.text(ctx, PHONE, 540, 905, { font: '600 70px Poppins', color: Z.deep, align: 'center', alpha: n }); },
       actor(t) { return { x: 540, y: FLOOR, h: 380, pose: { armR: wave(t, 2.6), armL: 12, eyes: 'happy', mouth: t > 2.6 ? 'grin' : 'smile', hop: t > 1.6 && t < 1.9 ? Math.sin((t - 1.6) / 0.3 * Math.PI) * 24 : 0 } }; } },
   ],
 };

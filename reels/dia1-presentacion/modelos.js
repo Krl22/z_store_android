@@ -1,4 +1,5 @@
-// Hoja de modelos de la mascota: 1) tres formas de sombrero, 2) seis vestuarios. Render: node render.mjs --stills 1,3 --query spec=modelos.js
+// Hoja de modelos de la mascota (v2, según la referencia de Carlos): 1) personaje y expresiones, 2) vestuario.
+// Render: node render.mjs --stills 1,3 --query spec=modelos.js
 import * as L from './engine/lib.js';
 import { Z, shroomyAt } from './styles/shroomy.js';
 
@@ -11,25 +12,15 @@ export default {
   style: 'zeta', format: '9:16', fps: 30, camera: false, chrome: false, captions: false, person: false,
   scenes: [
     { type: 'story', dur: 2, bg: 'cream', render(K) {
-      head(K, `${NAME} · formas`, 'elige la silueta');
-      [['A · Clásico', 'clasico', 'dot'], ['B · Portobello', 'portobello', 'happy'], ['C · Bebé', 'bebe', 'wide']].forEach(([n, shape, eyes], i) => {
-        const y = 760 + i * 0; const x = 190 + i * 350; floor(K, 760);
-        shroomyAt(K, x, 760, i === 2 ? 290 : 310, { shape, eyes, mouth: i === 2 ? 'o' : 'smile', armR: i === 1 ? 60 : 10 });
-        label(K, n, x, 840, 38); });
-      // grande: el recomendado, saludando
-      floor(K, 1640); shroomyAt(K, W / 2, 1640, 640, { shape: 'clasico', eyes: 'happy', mouth: 'grin', armR: 75, armL: 10 });
-      label(K, 'A en grande, saludando', W / 2, 1730, 42, Z.green); } },
+      head(K, `${NAME} dorada`, 'con corona, capa y varita');
+      floor(K, 1130); shroomyAt(K, W / 2, 1130, 720, { outfit: 'rey', wand: true, armR: 40, armL: 70, eyes: 'dot', mouth: 'open' });
+      [['feliz', { eyes: 'happy', armL: 70, armR: 70 }], ['sorpresa', { eyes: 'wide', mouth: 'o' }], ['tranquila', { eyes: 'closed', mouth: 'smile' }]].forEach(([n, P], i) => {
+        const x = 190 + i * 350; floor(K, 1690); shroomyAt(K, x, 1690, 330, Object.assign({ outfit: 'rey' }, P)); label(K, n, x, 1770, 38); }); } },
     { type: 'story', dur: 2, bg: 'sage', render(K) {
       head(K, `${NAME} · vestuario`, 'una pinta para cada post');
-      [['Natural', 'normal', {}], ['Chef', 'chef', { armR: 40, eyes: 'happy' }], ['Jardinero', 'jardinero', { armL: 60, eyes: 'happy' }],
-       ['Chullo y chalina', 'chullo', { mouth: 'grin', eyes: 'happy' }], ['Repartidor', 'repartidor', { armR: 75, look: [0.4, -0.1] }], ['Elegante', 'elegante', { mouth: 'grin' }]]
-        .forEach(([n, outfit, P], i) => { const x = 190 + (i % 3) * 350, y = 900 + Math.floor(i / 3) * 760; floor(K, y);
-          shroomyAt(K, x, y, 330, Object.assign({ outfit }, P)); label(K, n, x, y + 80, 38); }); } },
-    { type: 'story', dur: 2, bg: 'cream', render(K) {
-      head(K, `${NAME} · color`, '¿dorado entero o crema con dorado?');
-      floor(K, 1000); shroomyAt(K, 290, 1000, 520, { eyes: 'happy', mouth: 'grin', armR: 70 }); label(K, '1 · Dorado entero', 290, 1090, 40);
-      shroomyAt(K, 790, 1000, 520, { tone: 'crema', eyes: 'happy', mouth: 'grin', armR: 70 }); label(K, '2 · Crema + ribete dorado', 790, 1090, 40);
-      floor(K, 1700); [['chef', 140], ['jardinero', 400], ['chullo', 660], ['repartidor', 920]].forEach(([outfit, x]) => shroomyAt(K, x, 1700, 300, { tone: 'crema', outfit, eyes: 'happy' }));
-      label(K, 'la opción 2 con vestuario', W / 2, 1790, 38, Z.green); } },
+      [['Rey (Día 1)', 'rey', { wand: true, armL: 60 }], ['Natural', 'natural', { eyes: 'happy' }], ['Chef', 'chef', { armR: 40, eyes: 'happy' }],
+       ['Jardinero', 'jardinero', { armL: 60, eyes: 'happy' }], ['Chullo y chalina', 'chullo', { eyes: 'happy' }], ['Repartidor', 'repartidor', { armR: 75, look: [0.4, -0.1] }]]
+        .forEach(([n, outfit, P], i) => { const x = 190 + (i % 3) * 350, y = 960 + Math.floor(i / 3) * 760; floor(K, y);
+          shroomyAt(K, x, y, 360, Object.assign({ outfit }, P)); label(K, n, x, y + 80, 38); }); } },
   ],
 };
