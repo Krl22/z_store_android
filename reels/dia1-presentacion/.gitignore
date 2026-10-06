@@ -5,3 +5,5 @@ sfx.json
 audio/_*
 _*.mp4
 __pycache__/
+entrega/reel.mp4
+entrega/portada.png

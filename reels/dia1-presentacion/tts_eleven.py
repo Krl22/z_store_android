@@ -2,7 +2,7 @@
 Uso: python tts_eleven.py <voice_id> guion.txt [offset_s=0.25]"""
 import base64, json, os, subprocess, sys, urllib.request
 vid, path = sys.argv[1], sys.argv[2]; off = float(sys.argv[3]) if len(sys.argv) > 3 else 0.25
-key = [l.split('=', 1)[1].strip() for l in open(os.path.expanduser('~/.config/video-pizarra/keys.env')) if l.startswith('ELEVENLABS_API_KEY=')][0]
+key = os.environ.get('ELEVENLABS_API_KEY') or [l.split('=', 1)[1].strip() for l in open(os.path.expanduser('~/.config/video-pizarra/keys.env')) if l.startswith('ELEVENLABS_API_KEY=')][0]
 text = open(path, encoding='utf-8').read().strip()
 body = json.dumps({'text': text, 'model_id': 'eleven_multilingual_v2', 'language_code': 'es',
                    'voice_settings': {'stability': 0.55, 'similarity_boost': 0.8, 'style': 0.2, 'speed': 1.0}}).encode()

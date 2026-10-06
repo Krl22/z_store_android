@@ -1,0 +1,34 @@
+<title>Reel Día 1 · Mushie</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Poppins:wght@400;600&display=swap">
+<style>
+/* Layout: una columna para celular; el reel 9:16 arriba, portada y notas debajo */
+:root{--bg:#F3F0E6;--card:#FFFDF4;--ink:#23301F;--deep:#284B2E;--green:#426B35;--gold:#EAC64A;--line:#D8DDC8;
+--display:"Fraunces",Georgia,serif;--body:"Poppins",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1B2219;--card:#232C20;--ink:#EDEBDD;--deep:#CFE0B8;--green:#A9C98F;--gold:#EAC64A;--line:#3A4535;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1B2219;--card:#232C20;--ink:#EDEBDD;--deep:#CFE0B8;--green:#A9C98F;--gold:#EAC64A;--line:#3A4535;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.55}
+main{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:grid;gap:20px}
+h1{font-family:var(--display);color:var(--deep);font-size:1.9rem;line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);color:var(--deep);font-size:1.25rem;margin:0}
+p,ol,ul{margin:0}
+.lead{color:var(--green)}
+video,figure img{width:100%;max-width:100%;border-radius:14px;border:1px solid var(--line);display:block;background:#000}
+video{aspect-ratio:9/16}
+figure{margin:0;display:grid;gap:8px}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--gold);border-radius:10px;padding:14px 16px;display:grid;gap:8px}
+ol,ul{padding-left:1.2em;display:grid;gap:4px}
+small{opacity:.75}
+</style>
+<main>
+<h1>Reel Día 1 · Presentación con Mushie</h1>
+<p class="lead">Borrador de 18 s en formato 9:16. Tiene voz y efectos suaves; la música está pendiente.</p>
+<video src="reel.mp4" poster="poster.jpg" controls playsinline preload="metadata"></video>
+<div class="note"><h2>Guion</h2>
+<ol><li>¡Hola! Soy Mushie. Te doy la bienvenida a Zeta Dorada.</li><li>Hacemos kits para cultivar hongos comestibles en casa.</li><li>Hechos con calma, como nos gusta.</li><li>¿Quieres el tuyo? Pide por WhatsApp. (+51 928 817 018)</li></ol></div>
+<figure><h2>Portada para Facebook (1080×1080)</h2><img src="portada.png" alt="Portada: logo de Zeta Dorada, ¡Hola! Soy Mushie, la mascota dorada con corona y Pide por WhatsApp"></figure>
+<div class="note"><h2>Antes de publicar</h2>
+<ul><li><b>Música:</b> Suno ya la generó, pero falta permitir la descarga en la red. Cuando entre, la mezclo.</li>
+<li><b>Licencias:</b> la voz es del plan gratis de ElevenLabs, que no permite uso comercial. Para la página hace falta un plan de pago, igual que para la música de Suno.</li>
+<li><b>Voz:</b> es «Sarah», una voz en español neutro del plan gratis. Las voces latinas son solo de pago.</li></ul></div>
+<p><small>Borrador. No se publicó nada en Facebook.</small></p>
+</main>
