@@ -54,7 +54,7 @@ export default {
         const m = MJ(K, 820, 1560, 420, { armL: 70, armR: 15, eyes: 'happy', mouth: 'smile', look: [-0.6, 0] });
         const q = (Math.sin(t * 6) * 0.5 + 0.5); sprayer(K, sk, m.handL[0] - 10, m.handL[1] - 70, 1.1, 0.35, q, true);
         [0, 1, 2].forEach(k => { const p = pop(t, 0.8 + k * 0.25); if (p > 0.01) { ctx.save(); ctx.translate(380 + k * 110, 860); ctx.scale(p, p); drop(K, 0, 0, 26); ctx.restore(); } });
-        hand(K, '3 veces al día', 490, 960, 58, Z.deep, cl((t - 1.4) / 0.3)); } },
+        if (t > 1.4) L.text(ctx, '3 veces al día', 490, 1000, { font: '700 52px Poppins', color: Z.deep, align: 'center', alpha: cl((t - 1.4) / 0.3) }); } },
     // 3 · sombra
     { type: 'story', dur: 3.5 * B, bg: 'cream', trans: { type: 'pan', dur: 0.35 },
       render(K, s, h) { const sk = SK(K, 64), ctx = K.ctx, t = s.t; stepHead(K, s, h, 3, t);
