@@ -1,0 +1,25 @@
+<title>Voces para Mushie</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Poppins:wght@400;600&display=swap">
+<style>
+/* Layout: una columna; una tarjeta por voz con su reproductor */
+:root{--bg:#F3F0E6;--card:#FFFDF4;--ink:#23301F;--deep:#284B2E;--green:#426B35;--gold:#EAC64A;--line:#D8DDC8;
+--display:"Fraunces",Georgia,serif;--body:"Poppins",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1B2219;--card:#232C20;--ink:#EDEBDD;--deep:#CFE0B8;--green:#A9C98F;--line:#3A4535;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1B2219;--card:#232C20;--ink:#EDEBDD;--deep:#CFE0B8;--green:#A9C98F;--line:#3A4535;color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.5}
+main{max-width:520px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:grid;gap:16px}
+h1{font-family:var(--display);color:var(--deep);font-size:1.8rem;line-height:1.1;margin:0;text-wrap:balance}
+h2{font-family:var(--display);color:var(--deep);font-size:1.2rem;margin:0}
+p{margin:0}.lead{color:var(--green)}
+.v{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;gap:8px}
+.v .tag{font-size:.85rem;opacity:.8}
+audio{width:100%}
+</style>
+<main>
+<h1>Elige la voz de Mushie</h1>
+<p class="lead">Frase de prueba: «¡Hola! Soy Mushie. Te doy la bienvenida a Zeta Dorada.»</p>
+<div class="v"><h2>A · Lily</h2><p class="tag">Mujer · acento peruano · alegre y optimista</p><audio controls preload="metadata" src="A_lily_peruana.mp3"></audio></div>
+<div class="v"><h2>B · Kate</h2><p class="tag">Mujer joven · latina · juguetona, ideal para personajes</p><audio controls preload="metadata" src="B_kate_latina.mp3"></audio></div>
+<div class="v"><h2>C · César</h2><p class="tag">Hombre joven · acento peruano · ágil, estilo redes</p><audio controls preload="metadata" src="C_cesar_peruano.mp3"></audio></div>
+<p>Respóndeme con A, B o C. Si ninguna te convence, busco otras.</p>
+</main>
