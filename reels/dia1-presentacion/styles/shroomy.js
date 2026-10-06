@@ -59,7 +59,7 @@ export function drawShroomy(ctx, F, S, P = {}, t = 0) {
     if (es === 'happy') { ctx.lineWidth = 5.5; ctx.moveTo(x - 10, y + 3); ctx.quadraticCurveTo(x, y - 9, x + 10, y + 3); ctx.stroke(); continue; }
     if (es === 'closed') { ctx.lineWidth = 5; ctx.moveTo(x - 10, y); ctx.quadraticCurveTo(x, y + 7, x + 10, y); ctx.stroke(); continue; }
     const m = es === 'wide' ? 1.3 : 1; ctx.ellipse(x, y, 8 * m, 10 * m, 0, 0, 7); ctx.fill(); ctx.save(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 2.5, y - 3.5, 2.8 * m, 0, 7); ctx.fill(); ctx.restore(); }
-  ctx.save(); ctx.globalAlpha = 0.3; ctx.fillStyle = Z.terra; for (const x of [-60 * k, 60 * k]) { ctx.beginPath(); ctx.ellipse(x + ex, ey + 22, 15, 9, 0, 0, 7); ctx.fill(); } ctx.restore();
+  ctx.save(); ctx.globalAlpha = 0.4; ctx.fillStyle = '#F2B3A6'; for (const x of [-60 * k, 60 * k]) { ctx.beginPath(); ctx.ellipse(x + ex, ey + 22, 15, 9, 0, 0, 7); ctx.fill(); } ctx.restore();
   { const m = new Path2D(), my = ey + 20; if (P.mouth === 'o') m.ellipse(ex, my + 4, 8, 10, 0, 0, 7); else if (P.mouth === 'grin') { m.moveTo(ex - 15, my); m.quadraticCurveTo(ex, my + 20, ex + 15, my); m.closePath(); ctx.fillStyle = '#7A3B2A'; ctx.fill(m); } else { m.moveTo(ex - 12, my); m.quadraticCurveTo(ex, my + 12, ex + 12, my); } S(m, 0.9); }
   // ropa de la cabeza (encima del sombrero)
   const hatTop = head(ctx, F, S, o, g, sway);
