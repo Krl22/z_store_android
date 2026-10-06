@@ -11,3 +11,5 @@ audio/music_*.mp3
 entrega-publicidad/reel.mp4
 entrega-publicidad/portada.png
 audio/_me.wav
+entregas/*/*.png
+entregas/*/*.mp4
