@@ -36,12 +36,17 @@ export function frameLeaves(K, sk, t = 0) { [[90, Y0 + 70, 0.3], [990, Y0 + 90, 
 // ---------- ilustraciones ----------
 // melena de león (el hongo, sin carita): bola crema con filas de espinas colgantes
 export function lionsMane(K, sk, x, y, s = 1, t = 0) { const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
-  const b = new Path2D(), N = 22; for (let i = 0; i <= N; i++) { const a = i / N * Math.PI * 2, r = i % 2 ? 1.06 : 1, px = Math.cos(a) * 110 * r, py = Math.sin(a) * 96 * r; i ? b.lineTo(px, py) : b.moveTo(px, py); } b.closePath();
-  sk.fill(b, '#F6EEDC'); sk.stroke(b, 0.9);
-  [[10, 26, 0.6], [36, 34, 0.75], [62, 40, 0.9]].forEach(([ry, len, wk], j) => { const half = 110 * Math.sqrt(Math.max(0, 1 - (ry / 100) ** 2)) * 0.95, n = Math.round(half / 13);
-    for (let i = 0; i <= n * 2; i++) { const bx = -half + i * (half / n), sw = Math.sin(t * 2 + i + j) * 2, l = len + ((i * 7 + j * 3) % 5) * 3, w = 9 * wk + 3, p = new Path2D();
-      p.moveTo(bx - w, ry - 4); p.quadraticCurveTo(bx - w * 0.7, ry + l * 0.7, bx - w * 0.3 + sw, ry + l); p.quadraticCurveTo(bx + sw, ry + l + w * 0.7, bx + w * 0.3 + sw, ry + l); p.quadraticCurveTo(bx + w * 0.7, ry + l * 0.7, bx + w, ry - 4); p.closePath();
-      ctx.fillStyle = j === 2 ? '#F0E4CB' : '#F7EFDF'; ctx.fill(p); ctx.save(); ctx.strokeStyle = 'rgba(35,48,31,.3)'; ctx.lineWidth = 2; ctx.stroke(p); ctx.restore(); } });
+  // cuerpo esponjoso con borde de bultitos (como un pompón)
+  const b = new Path2D(), N = 22; let xp, yp;
+  for (let i = 0; i <= N; i++) { const a0 = i / N * Math.PI * 2, a1 = (i + 0.5) / N * Math.PI * 2, x0 = Math.cos(a0) * 104, y0 = Math.sin(a0) * 92;
+    if (i === 0) b.moveTo(x0, y0); else b.quadraticCurveTo(xp, yp, x0, y0); xp = Math.cos(a1) * 112; yp = Math.sin(a1) * 99; }
+  b.closePath(); sk.fill(b, '#F6EEDC'); sk.stroke(b, 0.9);
+  ctx.save(); ctx.globalAlpha = 0.35; for (let i = 0; i < 18; i++) { const a = i * 2.4, d = 30 + (i * 13) % 50, px = Math.cos(a) * d, py = -30 + Math.sin(a) * d * 0.6; const p = new Path2D(); p.moveTo(px - 6, py - 6); p.quadraticCurveTo(px + 2, py + 2, px + 2, py + 10); sk.stroke(p, 0.4); } ctx.restore();
+  // espinas suaves que cuelgan en la mitad de abajo
+  [[22, 22, 0.55], [46, 30, 0.7], [70, 38, 0.85]].forEach(([ry, len, wk], j) => { const half = 104 * Math.sqrt(Math.max(0, 1 - (ry / 92) ** 2)) * 0.96, n = Math.max(2, Math.round(half / 14));
+    for (let i = 0; i <= n * 2; i++) { const bx = -half + i * (half / n), sw = Math.sin(t * 2 + i * 1.7 + j) * 2.5, l = len + ((i * 7 + j * 3) % 5) * 3, w = 9 * wk + 3, p = new Path2D();
+      p.moveTo(bx - w, ry - 4); p.quadraticCurveTo(bx - w * 0.7, ry + l * 0.7, bx - w * 0.3 + sw, ry + l); p.quadraticCurveTo(bx + sw, ry + l + w * 0.7, bx + w * 0.3 + sw, ry + l); p.quadraticCurveTo(bx + w * 0.7, ry + l * 0.7, bx + w, ry - 4);
+      const edge = new Path2D(p); p.closePath(); ctx.fillStyle = j === 2 ? '#F0E4CB' : j === 1 ? '#F5ECDA' : '#F8F1E3'; ctx.fill(p); ctx.save(); ctx.strokeStyle = 'rgba(35,48,31,.3)'; ctx.lineWidth = 2.2; ctx.stroke(edge); ctx.restore(); } });
   ctx.restore(); }
 // racimo de setas ostra (abanicos), color crema o pardo
 export function oysters(K, sk, x, y, s = 1, col = '#EFE6D2', edge = '#CDBB97') { const ctx = K.ctx; ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
