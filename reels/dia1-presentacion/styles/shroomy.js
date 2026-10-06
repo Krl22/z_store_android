@@ -11,7 +11,7 @@ const boil = K => Math.floor(K.t * 8);
 export const SH = { gold: '#E9B43A', goldDeep: '#C98A20', goldLight: '#FFEFA0', spot: '#FBE08A', body: '#FBF1DD', bodyShade: '#EAD6B0', gill: '#F1DFB8',
   line: '#6B4521', blush: '#F4A9A0', eye: '#3A2618', mouth: '#8B3A2A', kraft: '#CDA678', straw: '#E6C681', boot: '#EDB93F' };
 export const OUTFITS = ['rey', 'natural', 'chef', 'jardinero', 'chullo', 'repartidor'];
-const CAP = { rx: 124, ry: 16, cy: -170, top: -284 }, NECK = -58;
+const CAP = { rx: 126, ry: 16, cy: -166, top: -284 }, NECK = -50;
 
 const rr = (x, y, w, h, r) => { const p = new Path2D(); p.roundRect(x, y, w, h, r); return p; };
 const ell = (x, y, rx, ry, a = 0) => { const p = new Path2D(); p.ellipse(x, y, rx, ry, a, 0, 7); return p; };
@@ -24,16 +24,13 @@ export function drawShroomy(ctx, F, S, P = {}, t = 0) {
   if (o === 'rey') { const fl = Math.sin(t * 2.4) * 5, c = new Path2D();
     c.moveTo(-46, -128); c.quadraticCurveTo(-92 - fl, -70, -98 - fl, -8); c.quadraticCurveTo(-50, 2, 0, 0); c.quadraticCurveTo(50, 2, 98 + fl, -8); c.quadraticCurveTo(92 + fl, -70, 46, -128); c.closePath();
     F(c, SH.gold); ctx.save(); ctx.clip(c); ctx.globalAlpha = 0.35; ctx.fillStyle = SH.goldDeep; ctx.fillRect(-120, -60, 240, 70); ctx.restore(); S(c, 0.9); }
-  // laminillas (se ven por debajo del sombrero)
-  const { rx, ry, cy, top } = CAP, gl = ell(sway, cy, rx, ry); F(gl, SH.gill);
-  ctx.save(); ctx.clip(gl); ctx.globalAlpha = 0.5; for (let i = 0; i <= 20; i++) { const a = Math.PI * (0.05 + 0.9 * i / 20), p = new Path2D(); p.moveTo(sway + Math.cos(a) * 40, cy + Math.sin(a) * ry * 0.3); p.lineTo(sway + Math.cos(a) * rx, cy + Math.sin(a) * ry); S(p, 0.35); } ctx.restore();
-  S(gl, 0.8);
+  const { rx, ry, cy, top } = CAP;
   // cuerpo gordito
-  // el tallo nace angosto del centro del sombrero y se ensancha hacia abajo
-  const body = new Path2D(); body.moveTo(-40, -198); body.bezierCurveTo(-14, -204, 14, -204, 40, -198); body.bezierCurveTo(48, -156, 82, -126, 78, -62); body.bezierCurveTo(74, -14, 42, -3, 0, -3);
-  body.bezierCurveTo(-42, -3, -74, -14, -78, -62); body.bezierCurveTo(-82, -126, -48, -156, -40, -198); body.closePath();
+  // cuerpo: la parte de arriba queda dentro del sombrero
+  const body = new Path2D(); body.moveTo(-60, -205); body.bezierCurveTo(-20, -212, 20, -212, 60, -205); body.bezierCurveTo(80, -150, 84, -80, 76, -46); body.bezierCurveTo(70, -12, 42, -3, 0, -3);
+  body.bezierCurveTo(-42, -3, -70, -12, -76, -46); body.bezierCurveTo(-84, -80, -80, -150, -60, -205); body.closePath();
   F(body, SH.body); ctx.save(); ctx.clip(body); ctx.globalAlpha = 0.45; ctx.fillStyle = SH.bodyShade; ctx.beginPath(); ctx.ellipse(34, -10, 70, 50, 0, 0, 7); ctx.fill();
-  { const sh = ctx.createLinearGradient(0, CAP.cy - 4, 0, CAP.cy + 26); sh.addColorStop(0, 'rgba(150,110,50,.45)'); sh.addColorStop(1, 'rgba(150,110,50,0)'); ctx.globalAlpha = 1; ctx.fillStyle = sh; ctx.fillRect(-90, CAP.cy - 10, 180, 40); }
+  { const sh = ctx.createLinearGradient(0, CAP.cy + CAP.ry - 2, 0, CAP.cy + CAP.ry + 22); sh.addColorStop(0, 'rgba(150,110,50,.45)'); sh.addColorStop(1, 'rgba(150,110,50,0)'); ctx.globalAlpha = 1; ctx.fillStyle = sh; ctx.fillRect(-90, CAP.cy + CAP.ry - 4, 180, 30); }
   ctx.restore(); S(body, 1);
   // pies o botitas
   for (const fx of [-30, 30]) {
@@ -43,7 +40,7 @@ export function drawShroomy(ctx, F, S, P = {}, t = 0) {
   clothes(ctx, F, S, o, t);
   // sombrero dorado (cúpula brillante con lunares claros)
   const cap = new Path2D(); cap.moveTo(sway - rx, cy); cap.bezierCurveTo(sway - rx - 6, cy - 84, sway - rx * 0.55, top, sway, top); cap.bezierCurveTo(sway + rx * 0.55, top, sway + rx + 6, cy - 84, sway + rx, cy);
-  cap.ellipse(sway, cy, rx, ry, 0, 0, Math.PI, true); cap.closePath();
+  cap.ellipse(sway, cy, rx, ry, 0, 0, Math.PI, false); cap.closePath();
   F(cap, SH.gold);
   ctx.save(); ctx.clip(cap);
   const gr = ctx.createRadialGradient(sway - 45, top + 40, 10, sway - 20, top + 70, 190); gr.addColorStop(0, SH.goldLight); gr.addColorStop(0.45, '#F2C64A'); gr.addColorStop(1, SH.goldDeep);
@@ -66,12 +63,12 @@ export function drawShroomy(ctx, F, S, P = {}, t = 0) {
   // carita en el cuerpo
   const ex = sway + lk[0] * 7, ey = lk[1] * 6, blink = P.blink !== false && ((t + (P.seed || 0)) % 3.3) < 0.13, es = (P.eyes || 'dot') === 'dot' && blink ? 'closed' : (P.eyes || 'dot');
   ctx.fillStyle = SH.eye; ctx.strokeStyle = SH.eye;
-  for (const x0 of [-30, 30]) { const x = x0 + ex, y = -116 + ey; ctx.beginPath();
+  for (const x0 of [-30, 30]) { const x = x0 + ex, y = -114 + ey; ctx.beginPath();
     if (es === 'happy') { ctx.lineWidth = 6; ctx.moveTo(x - 11, y + 4); ctx.quadraticCurveTo(x, y - 10, x + 11, y + 4); ctx.stroke(); continue; }
     if (es === 'closed') { ctx.lineWidth = 5.5; ctx.moveTo(x - 11, y); ctx.quadraticCurveTo(x, y + 8, x + 11, y); ctx.stroke(); continue; }
     const m = es === 'wide' ? 1.2 : 1; ctx.ellipse(x, y, 12 * m, 15 * m, 0, 0, 7); ctx.fill(); ctx.save(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + 4, y - 5, 4.5 * m, 0, 7); ctx.fill(); ctx.beginPath(); ctx.arc(x - 3.5, y + 5, 2 * m, 0, 7); ctx.fill(); ctx.restore(); }
-  { const br = (P.brow || 0) * 7 + (es === 'wide' ? 6 : 0); ctx.save(); ctx.globalAlpha = 0.75; ctx.strokeStyle = SH.eye; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
-    for (const s of [-1, 1]) { const x = s * 30 + ex, y = -140 + ey - br; ctx.beginPath(); ctx.moveTo(x - 9, y + 2); ctx.quadraticCurveTo(x, y - 4 - br * 0.3, x + 9, y + 2); ctx.stroke(); } ctx.restore(); }
+  { const br = (P.brow || 0) * 4 + (es === 'wide' ? 4 : 0); ctx.save(); ctx.globalAlpha = 0.75; ctx.strokeStyle = SH.eye; ctx.lineWidth = 4.5; ctx.lineCap = 'round';
+    for (const s of [-1, 1]) { const x = s * 30 + ex, y = -136 + ey - br; ctx.beginPath(); ctx.moveTo(x - 9, y + 2); ctx.quadraticCurveTo(x, y - 4 - br * 0.3, x + 9, y + 2); ctx.stroke(); } ctx.restore(); }
   ctx.save(); ctx.globalAlpha = 0.55; ctx.fillStyle = SH.blush; for (const x of [-52, 52]) { ctx.beginPath(); ctx.ellipse(x + ex, -94 + ey, 14, 8, 0, 0, 7); ctx.fill(); } ctx.restore();
   { const my = -94 + ey, talking = typeof P.talk === 'number' && P.talk >= 0.08, mo = talking ? 'open' : (P.mouth || 'open'), k = talking ? 0.35 + 0.8 * P.talk : 1, mw = talking ? 12 + 6 * P.talk : 16, m = new Path2D();
     if (mo === 'o') { m.ellipse(ex, my + 4, 8, 10, 0, 0, 7); ctx.fillStyle = SH.mouth; ctx.fill(m); }
