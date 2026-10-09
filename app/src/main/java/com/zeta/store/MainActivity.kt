@@ -16,6 +16,7 @@ import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.NotificationCompat
@@ -115,6 +116,7 @@ import com.zeta.store.data.HomePromoRecord
 import com.zeta.store.data.AdminNotificationRecord
 import com.zeta.store.data.OrderItemInput
 import com.zeta.store.data.OrderRecord
+import com.zeta.store.data.StoreSettingsRecord
 import com.zeta.store.data.SupabaseClient
 import com.zeta.store.data.SupabaseSession
 import com.zeta.store.ui.theme.BosqueBackground
@@ -146,9 +148,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         oauthRedirect.value = intent?.dataString
-        enableEdgeToEdge()
+        // La tienda siempre es clara: íconos oscuros en las barras aunque el teléfono esté en modo oscuro.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
+        )
         setContent {
-            ZetaTheme {
+            ZetaTheme(darkTheme = false) {
                 BosqueVivoStore(
                     oauthRedirect = oauthRedirect.value,
                     onOAuthHandled = { oauthRedirect.value = null },
@@ -231,10 +237,7 @@ private enum class PaymentMethodOption(
     val detail: String,
     val badge: String,
 ) {
-    Yape("Yape demo", "Validacion inmediata simulada", "QR"),
-    Plin("Plin demo", "Pago movil simulado", "APP"),
-    Card("Tarjeta demo", "Visa/Mastercard sin cobro real", "****"),
-    Cash("Contra entrega", "Pago manual al recibir", "S/"),
+    Yape("Yape", "Te enviamos los datos por WhatsApp", "QR"),
 }
 
 private data class CheckoutSuccess(
@@ -242,7 +245,11 @@ private data class CheckoutSuccess(
     val itemCount: Int,
     val total: Int,
     val paymentMethod: String,
+    val whatsappUrl: String?,
 )
+
+internal fun Context.openWhatsapp(url: String): Boolean =
+    runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.isSuccess
 
 private data class AdminColorOption(
     val name: String,
@@ -306,6 +313,7 @@ fun BosqueVivoStore(oauthRedirect: String? = null, onOAuthHandled: () -> Unit = 
     var deliveryMethod by remember { mutableStateOf("delivery") }
     var paymentMethod by remember { mutableStateOf(PaymentMethodOption.Yape) }
     var profileTargetTab by remember { mutableStateOf<String?>(null) }
+    var storeSettings by remember { mutableStateOf<StoreSettingsRecord?>(null) }
     val cart = remember { mutableStateMapOf<String, Int>() }
     val savedProducts = remember { mutableStateMapOf<String, Boolean>() }
 
@@ -431,6 +439,7 @@ fun BosqueVivoStore(oauthRedirect: String? = null, onOAuthHandled: () -> Unit = 
         productsMessage = runCatching {
             remoteProducts = supabaseClient.fetchProducts()
             remotePromos = supabaseClient.fetchHomePromos()
+            storeSettings = runCatching { supabaseClient.fetchStoreSettings() }.getOrNull()
             if (remoteProducts.isEmpty()) "No hay productos activos en Supabase." else null
         }.getOrElse { error ->
             "No pudimos cargar la tienda. Revisa tu conexion e intenta nuevamente."
@@ -609,18 +618,13 @@ fun BosqueVivoStore(oauthRedirect: String? = null, onOAuthHandled: () -> Unit = 
         scope.launch {
             checkingOut = true
             showCheckoutConfirmation = false
-            productsMessage = "Preparando tu pedido simulado..."
-            delay(850)
+            productsMessage = "Reservando stock de tu pedido..."
             productsMessage = runCatching {
                 val defaultAddressId = if (deliveryMethod == "delivery") {
                     profile?.defaultAddressId?.asRealId() ?: defaultAddress?.id?.asRealId()
                 } else {
                     null
                 }
-                productsMessage = "Validando ${paymentMethod.label.lowercase()}..."
-                delay(450)
-                productsMessage = "Reservando stock del pedido..."
-                delay(450)
                 val order = supabaseClient.createOrder(
                     session = activeSession,
                     items = orderItems,
@@ -635,13 +639,17 @@ fun BosqueVivoStore(oauthRedirect: String? = null, onOAuthHandled: () -> Unit = 
                     adminOrders = supabaseClient.fetchAdminOrders(activeSession)
                     adminNotifications = supabaseClient.fetchAdminNotifications(activeSession)
                 }
+                // El pedido ya existe; si falla el link de WhatsApp, se puede reenviar desde Pedidos.
+                val whatsappUrl = runCatching { supabaseClient.fetchOrderWhatsappUrl(activeSession, order.id) }.getOrNull()
                 checkoutSuccess = CheckoutSuccess(
                     orderCode = order.id.take(8).uppercase(),
-                    itemCount = orderItems.sumOf { it.quantity },
-                    total = orderItems.sumOf { it.quantity * it.unitPrice },
+                    itemCount = order.items.sumOf { it.quantity },
+                    total = order.total,
                     paymentMethod = paymentMethod.label,
+                    whatsappUrl = whatsappUrl,
                 )
-                "Pago demo aprobado y pedido registrado."
+                whatsappUrl?.let(context::openWhatsapp)
+                "Pedido registrado. Confírmalo por WhatsApp para coordinar el pago."
             }.getOrElse { error ->
                 error.message?.let { "Checkout no completado: $it" }
                     ?: "No pudimos completar el checkout. Intenta nuevamente en un momento."
@@ -746,6 +754,7 @@ fun BosqueVivoStore(oauthRedirect: String? = null, onOAuthHandled: () -> Unit = 
     ) {
         when (currentTab) {
             AppTab.Home -> HomeScreen(
+                promoRotationSeconds = storeSettings?.adRotationSeconds ?: 4,
                 cartCount = cartCount,
                 session = session,
                 profile = profile,
@@ -847,32 +856,27 @@ fun BosqueVivoStore(oauthRedirect: String? = null, onOAuthHandled: () -> Unit = 
 
             AppTab.Admin -> {
                 if (profile?.isAdmin == true && session != null) {
-                    AdminScreen(
+                    val adminSession = session!!
+                    ZetaAdminPanel(
                         client = supabaseClient,
+                        session = adminSession,
                         products = remoteProducts,
                         promos = remotePromos,
                         orders = adminOrders,
                         notifications = adminNotifications,
-                        cartCount = cartCount,
-                        session = session,
-                        profile = profile,
-                        query = query,
-                        selectedCategory = selectedCategory,
-                        onQueryChange = {
-                            query = it
-                            currentTab = AppTab.Home
+                        storeSettings = storeSettings,
+                        onRefresh = {
+                            remoteProducts = supabaseClient.fetchProducts(adminSession)
+                            remotePromos = supabaseClient.fetchHomePromos(adminSession)
+                            adminOrders = supabaseClient.fetchAdminOrders(adminSession)
+                            adminNotifications = supabaseClient.fetchAdminNotifications(adminSession)
+                            storeSettings = supabaseClient.fetchStoreSettings() ?: storeSettings
                         },
-                        onCategorySelected = {
-                            selectedCategory = it
-                            currentTab = AppTab.Home
-                        },
-                        onCartClick = { currentTab = AppTab.Cart },
-                        onAdminClick = { currentTab = AppTab.Admin },
-                        onSave = { product ->
+                        onSaveProduct = { product ->
                             scope.launch {
                                 runCatching {
-                                    supabaseClient.saveProduct(session!!, product)
-                                    remoteProducts = supabaseClient.fetchProducts(session!!)
+                                    supabaseClient.saveProduct(adminSession, product)
+                                    remoteProducts = supabaseClient.fetchProducts(adminSession)
                                     productsMessage = null
                                     centerMessage = "Producto guardado"
                                 }.onFailure { error ->
@@ -880,54 +884,54 @@ fun BosqueVivoStore(oauthRedirect: String? = null, onOAuthHandled: () -> Unit = 
                                 }
                             }
                         },
-                        onSavePromo = { promo ->
-                            scope.launch {
-                                productsMessage = runCatching {
-                                    val saved = supabaseClient.saveHomePromo(session!!, promo)
-                                    remotePromos = supabaseClient.fetchHomePromos(session!!)
-                                    "Anuncio guardado: ${saved.title}"
-                                }.getOrElse { error -> error.message ?: "No se pudo guardar el anuncio." }
-                            }
-                        },
                         onDeleteProduct = { product ->
                             scope.launch {
                                 productsMessage = runCatching {
-                                    supabaseClient.deleteProduct(session!!, product.id)
-                                    remoteProducts = supabaseClient.fetchProducts(session!!)
+                                    supabaseClient.deleteProduct(adminSession, product.id)
+                                    remoteProducts = supabaseClient.fetchProducts(adminSession)
                                     "Producto eliminado: ${product.name}"
                                 }.getOrElse { error -> error.message ?: "No se pudo eliminar el producto." }
+                            }
+                        },
+                        onSavePromo = { promo ->
+                            scope.launch {
+                                productsMessage = runCatching {
+                                    val saved = supabaseClient.saveHomePromo(adminSession, promo)
+                                    remotePromos = supabaseClient.fetchHomePromos(adminSession)
+                                    "Anuncio guardado: ${saved.title}"
+                                }.getOrElse { error -> error.message ?: "No se pudo guardar el anuncio." }
                             }
                         },
                         onDeletePromo = { promo ->
                             scope.launch {
                                 productsMessage = runCatching {
-                                    supabaseClient.deleteHomePromo(session!!, promo.id)
-                                    remotePromos = supabaseClient.fetchHomePromos(session!!)
+                                    supabaseClient.deleteHomePromo(adminSession, promo.id)
+                                    remotePromos = supabaseClient.fetchHomePromos(adminSession)
                                     "Anuncio eliminado: ${promo.title}"
                                 }.getOrElse { error -> error.message ?: "No se pudo eliminar el anuncio." }
                             }
                         },
                         onUpdateOrderStatus = { order, status ->
-                            scope.launch {
-                                productsMessage = runCatching {
-                                    supabaseClient.updateOrderStatus(session!!, order.id, status)
-                                    adminOrders = supabaseClient.fetchAdminOrders(session!!)
-                                    "Pedido ${order.id.take(8)} actualizado."
-                                }.getOrElse { error -> error.message ?: "No se pudo actualizar el pedido." }
-                            }
+                            supabaseClient.updateOrderStatus(adminSession, order.id, status)
+                            adminOrders = supabaseClient.fetchAdminOrders(adminSession)
+                            // Cancelar devuelve stock al catálogo.
+                            if (status == "cancelled") remoteProducts = supabaseClient.fetchProducts(adminSession)
                         },
-                        onRefreshOrders = {
-                            scope.launch {
-                                productsMessage = runCatching {
-                                    adminOrders = supabaseClient.fetchAdminOrders(session!!)
-                                    adminNotifications = supabaseClient.fetchAdminNotifications(session!!)
-                                    adminNotifications.filterNot { it.isRead }.forEach { notification ->
-                                        supabaseClient.markAdminNotificationRead(session!!, notification.id)
-                                    }
-                                    adminNotifications = supabaseClient.fetchAdminNotifications(session!!)
-                                    "Pedidos actualizados."
-                                }.getOrElse { error -> error.message ?: "No pude actualizar pedidos." }
+                        onMarkNotificationsRead = {
+                            adminNotifications.filterNot { it.isRead }.forEach { notification ->
+                                supabaseClient.markAdminNotificationRead(adminSession, notification.id)
                             }
+                            adminNotifications = supabaseClient.fetchAdminNotifications(adminSession)
+                        },
+                        onStoreSettingsSaved = { storeSettings = it },
+                        onOwnRoleRemoved = {
+                            refreshProfileFromSupabase(adminSession)
+                            currentTab = AppTab.Home
+                        },
+                        onOwnAccountDeleted = {
+                            session = null
+                            productsMessage = "Tu cuenta fue eliminada."
+                            currentTab = AppTab.Home
                         },
                         onMessage = { productsMessage = it },
                     )
@@ -1050,6 +1054,7 @@ private fun ZetaSplashScreen(modifier: Modifier = Modifier) {
 @OptIn(ExperimentalFoundationApi::class)
 private fun HomeScreen(
     cartCount: Int,
+    promoRotationSeconds: Int = 4,
     session: SupabaseSession?,
     profile: ProfileRecord?,
     query: String,
@@ -1125,7 +1130,7 @@ private fun HomeScreen(
         }
         item {
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                PromoCarousel(promos = promos)
+                PromoCarousel(promos = promos, rotationSeconds = promoRotationSeconds)
             }
         }
         productsMessage?.let { message ->
@@ -1154,7 +1159,7 @@ private fun HomeScreen(
         }
         item {
             Box(modifier = Modifier.padding(horizontal = 14.dp)) {
-                SectionTitle(title = "Resultados", detail = "Entrega simulada en Lima")
+                SectionTitle(title = "Resultados", detail = "Delivery en Lima")
             }
         }
         if (productsLoading && products.isEmpty()) {
@@ -1594,7 +1599,7 @@ private fun ProfileCustomerDetailsCard(
         }
         CustomerInfoRow("Direccion principal", addressLine)
         Text(
-            text = "Estos datos alimentan el checkout simulado y el pedido que vera Admin.",
+            text = "Usamos estos datos para tu pedido y para coordinar la entrega por WhatsApp.",
             color = BosqueMuted,
             fontSize = 12.sp,
             lineHeight = 16.sp,
@@ -1831,7 +1836,7 @@ private fun AddressBookSection(
         if (defaultAddress == null) {
             EmptyStateCard(
                 title = "Agrega una direccion de entrega",
-                detail = "Asi el checkout simulado puede crear pedidos con datos de cliente y delivery.",
+                detail = "Así tu pedido llega con tus datos de contacto y de entrega.",
                 action = "Agregar direccion",
                 onAction = { showNewAddress = true },
             )
@@ -2371,7 +2376,7 @@ private fun ProfileOptionGrid(isAdmin: Boolean, modifier: Modifier = Modifier) {
         SectionTitle(title = "Tu cuenta", detail = if (isAdmin) "admin activo" else "cliente")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ProfileOptionTile("Direcciones", "Casa, oficina y retiro", AmazonIcon.Pin, Modifier.weight(1f))
-            ProfileOptionTile("Pagos", "Metodo simulado", AmazonIcon.Cart, Modifier.weight(1f))
+            ProfileOptionTile("Pagos", "Yape por WhatsApp", AmazonIcon.Cart, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ProfileOptionTile("Soporte", "Estado de pedidos", AmazonIcon.User, Modifier.weight(1f))
@@ -2489,7 +2494,7 @@ private fun OrdersEmptyState() {
                 fontSize = 13.sp,
                 lineHeight = 18.sp,
             )
-            Text(text = "Explora el catalogo y arma tu primer pedido demo.", color = StoreLink, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            Text(text = "Explora el catálogo y arma tu primer pedido.", color = StoreLink, fontSize = 12.sp, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -2522,7 +2527,7 @@ private fun ProfileSignedInHero(email: String, role: String, isAdmin: Boolean, m
             }
         }
         Text(
-            text = if (isAdmin) "Tienes acceso para editar home y productos desde Admin." else "Tu cuenta esta lista para guardar compras simuladas y futuras preferencias.",
+            text = if (isAdmin) "Tienes acceso para editar home y productos desde Admin." else "Tu cuenta guarda tus pedidos, direcciones y productos favoritos.",
             color = BosqueInk,
             fontSize = 13.sp,
         )
@@ -2534,7 +2539,7 @@ private fun ProfileBenefits(modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(text = "Por que entrar", color = BosqueInk, fontSize = 20.sp, fontWeight = FontWeight.Black)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            BenefitTile("Pedidos demo", "Tu carrito se siente como una compra real.", Modifier.weight(1f))
+            BenefitTile("Pedidos", "Sigue el estado de tus pedidos desde tu perfil.", Modifier.weight(1f))
             BenefitTile("Promos", "Recibe talleres y combos destacados.", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2719,7 +2724,7 @@ private fun CartScreen(
                     item {
                         EmptyStateCard(
                             title = "Tu carrito esta vacio",
-                            detail = "Agrega productos desde el home para ver resumen, entrega simulada y checkout como una orden real.",
+                            detail = "Agrega productos desde el inicio para ver el resumen y pedir por WhatsApp.",
                             action = "Seguir comprando",
                             onAction = onShop,
                             modifier = Modifier.padding(horizontal = 14.dp),
@@ -2825,7 +2830,7 @@ private fun CartScreen(
                     }
                 }
                 item {
-                    CartShelfSection(title = "Recomendados", detail = "Entrega simulada en Lima", products = products, onShop = onShop)
+                    CartShelfSection(title = "Recomendados", detail = "Delivery en Lima", products = products, onShop = onShop)
                 }
             }
         }
@@ -2995,7 +3000,7 @@ private fun CartDeliveryMethodPicker(
         )
         DeliveryChoice(
             title = "Retiro",
-            detail = "Recojo simulado",
+            detail = "Recojo en tienda",
             selected = selected == "pickup",
             modifier = Modifier.weight(1f),
             onClick = { onSelected("pickup") },
@@ -3041,7 +3046,7 @@ private fun CartPaymentMethodPicker(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        SectionTitle(title = "Pago simulado", detail = selected.label)
+        SectionTitle(title = "Pago", detail = selected.label)
         PaymentMethodOption.entries.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { option ->
@@ -3058,7 +3063,7 @@ private fun CartPaymentMethodPicker(
             }
         }
         Text(
-            text = "Modo demo: no se procesa cobro real ni se emite comprobante fiscal.",
+            text = "Al confirmar, abrimos WhatsApp con tu pedido y ahí coordinamos el pago con Yape.",
             color = BosqueMuted,
             fontSize = 11.sp,
             lineHeight = 15.sp,
@@ -3126,7 +3131,7 @@ private fun CartDeliveryAddressCard(address: AddressRecord?, deliveryMethod: Str
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(
                 text = when {
-                    isPickup -> "Retiro simulado en Lima"
+                    isPickup -> "Recojo en tienda"
                     address == null -> "Falta direccion de entrega"
                     else -> "Enviar a ${address.recipientName.ifBlank { "cliente" }}"
                 },
@@ -3138,7 +3143,7 @@ private fun CartDeliveryAddressCard(address: AddressRecord?, deliveryMethod: Str
             )
             Text(
                 text = when {
-                    isPickup -> "No se pedira direccion. Quedara como recojo para demo."
+                    isPickup -> "No necesitas dirección. Coordinamos el recojo por WhatsApp."
                     address == null -> "Completa Perfil > Cuenta > Direcciones para continuar con delivery."
                     else -> "${address.line1}, ${address.district}"
                 },
@@ -3181,8 +3186,8 @@ private fun CartCheckoutSummary(
         SectionTitle(title = "Resumen", detail = if (hasItems) "$itemCount items" else "sin items")
         CheckoutLine("Subtotal", if (hasItems) formatSoles(subtotal) else "S/ 0.00")
         CheckoutLine(
-            "Entrega simulada",
-            if (!hasItems) "-" else if (deliveryMethod == "pickup") "Retiro gratis" else if (defaultAddress == null) "Completar datos" else "Delivery gratis",
+            "Entrega",
+            if (!hasItems) "-" else if (deliveryMethod == "pickup") "Recojo en tienda" else if (defaultAddress == null) "Completar datos" else "Se coordina por WhatsApp",
         )
         CheckoutLine("Metodo de pago", if (hasItems) paymentMethod.label else "-")
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(BosqueBorder.copy(alpha = 0.7f)))
@@ -3195,12 +3200,12 @@ private fun CartCheckoutSummary(
             colors = ButtonDefaults.buttonColors(containerColor = StoreActionYellow, contentColor = BosqueInk),
         ) {
             Text(
-                text = if (checkingOut) "Procesando pago demo..." else "Pagar demo ($itemCount items)",
+                text = if (checkingOut) "Creando tu pedido..." else "Pedir por WhatsApp ($itemCount items)",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
             )
         }
-        Text(text = "Checkout simulado, sin pagos reales. El pedido queda visible en tu perfil.", color = BosqueMuted, fontSize = 12.sp, lineHeight = 16.sp)
+        Text(text = "Pagas con Yape al confirmar por WhatsApp. El pedido queda visible en tu perfil.", color = BosqueMuted, fontSize = 12.sp, lineHeight = 16.sp)
     }
 }
 
@@ -3254,7 +3259,7 @@ private fun AmazonCartItem(
             Text(text = "100+ interesados este mes", color = BosqueInk, fontSize = 13.sp)
             ProductPriceBlock(product = product, priceSize = 26, originalSize = 12)
             Text(
-                text = "Entrega gratis simulada en Lima",
+                text = "Delivery en Lima, se coordina por WhatsApp",
                 color = BosqueGreenDeep,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -3310,519 +3315,6 @@ private fun CartActionChip(text: String, onClick: () -> Unit = {}) {
             .clickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 8.dp)
     )
-}
-
-@Composable
-private fun AdminScreen(
-    client: SupabaseClient,
-    products: List<ProductRecord>,
-    promos: List<HomePromoRecord>,
-    orders: List<OrderRecord>,
-    notifications: List<AdminNotificationRecord>,
-    cartCount: Int,
-    session: SupabaseSession?,
-    profile: ProfileRecord?,
-    query: String,
-    selectedCategory: String,
-    onQueryChange: (String) -> Unit,
-    onCategorySelected: (String) -> Unit,
-    onCartClick: () -> Unit,
-    onAdminClick: () -> Unit,
-    onSave: (ProductRecord) -> Unit,
-    onSavePromo: (HomePromoRecord) -> Unit,
-    onDeleteProduct: (ProductRecord) -> Unit,
-    onDeletePromo: (HomePromoRecord) -> Unit,
-    onUpdateOrderStatus: (OrderRecord, String) -> Unit,
-    onRefreshOrders: () -> Unit,
-    onMessage: (String?) -> Unit,
-) {
-    var adminTab by remember { mutableStateOf("products") }
-    var productEditorSeed by remember { mutableStateOf<ProductRecord?>(null) }
-    var promoEditorSeed by remember { mutableStateOf<HomePromoRecord?>(null) }
-    val adminOptions = remember {
-        listOf(
-            HeaderOption("products", "Productos"),
-            HeaderOption("promos", "Anuncios"),
-            HeaderOption("orders", "Pedidos"),
-            HeaderOption("home", "Home"),
-        )
-    }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + 104.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            AmazonStyleHeader(
-                cartCount = cartCount,
-                email = session?.email,
-                isAdmin = profile?.isAdmin == true,
-                query = query,
-                onQueryChange = onQueryChange,
-                selectedCategory = selectedCategory,
-                onCategorySelected = onCategorySelected,
-                onCartClick = onCartClick,
-                onAdminClick = onAdminClick,
-                headerOptions = adminOptions,
-                selectedHeaderKey = adminTab,
-                onHeaderOptionSelected = { key ->
-                    if (key == "home") {
-                        onCategorySelected(selectedCategory)
-                    } else {
-                        adminTab = key
-                    }
-                },
-            )
-        }
-        item {
-            AdminHero(
-                activeTab = adminTab,
-                productCount = products.size,
-                promoCount = promos.size,
-                orderCount = orders.size,
-                unreadCount = notifications.count { !it.isRead },
-                onNewProduct = { productEditorSeed = emptyProductRecord(displayOrder = products.size + 1) },
-                onNewPromo = { promoEditorSeed = emptyHomePromoRecord(displayOrder = promos.size + 1) },
-                onRefreshOrders = onRefreshOrders,
-            )
-        }
-        if (adminTab == "orders") {
-            item {
-                SectionTitle(
-                    title = "Pedidos",
-                    detail = "${notifications.count { !it.isRead }} nuevos",
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                )
-            }
-            if (notifications.isNotEmpty()) {
-                item {
-                    AdminNotificationsPanel(
-                        notifications = notifications.take(4),
-                        modifier = Modifier.padding(horizontal = 14.dp),
-                    )
-                }
-            }
-            if (orders.isEmpty()) {
-                item {
-                    Text(
-                        text = "Todavia no hay pedidos registrados.",
-                        color = BosqueMuted,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(horizontal = 14.dp),
-                    )
-                }
-            } else {
-                items(orders, key = { it.id }) { order ->
-                    AdminOrderCard(
-                        order = order,
-                        onStatus = { status -> onUpdateOrderStatus(order, status) },
-                        modifier = Modifier.padding(horizontal = 14.dp),
-                    )
-                }
-            }
-        } else if (adminTab == "promos") {
-            item {
-                SectionTitle(
-                    title = "Anuncios home",
-                    detail = "${promos.size} banners",
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                )
-            }
-            items(promos, key = { it.id }) { promo ->
-                AdminPromoCard(
-                    promo = promo,
-                    onEdit = { promoEditorSeed = promo },
-                    onDelete = { onDeletePromo(promo) },
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                )
-            }
-        } else {
-            item {
-                SectionTitle(
-                    title = "Productos",
-                    detail = "${products.size} items",
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                )
-            }
-            items(products, key = { it.id }) { product ->
-                AdminProductCard(
-                    product = product,
-                    onEdit = { productEditorSeed = product },
-                    onDelete = { onDeleteProduct(product) },
-                    modifier = Modifier.padding(horizontal = 14.dp),
-                )
-            }
-        }
-    }
-
-    productEditorSeed?.let { seed ->
-        AdminPanelDialog(
-            client = client,
-            session = session,
-            products = products,
-            initialProduct = seed,
-            onDismiss = { productEditorSeed = null },
-            onMessage = onMessage,
-            onSave = onSave,
-            onDelete = {
-                onDeleteProduct(it)
-                productEditorSeed = null
-            },
-        )
-    }
-    promoEditorSeed?.let { seed ->
-        HomePromoAdminDialog(
-            client = client,
-            session = session,
-            promos = promos,
-            initialPromo = seed,
-            onDismiss = { promoEditorSeed = null },
-            onMessage = onMessage,
-            onSave = onSavePromo,
-            onDelete = {
-                onDeletePromo(it)
-                promoEditorSeed = null
-            },
-        )
-    }
-}
-
-@Composable
-private fun AdminHero(
-    activeTab: String,
-    productCount: Int,
-    promoCount: Int,
-    orderCount: Int,
-    unreadCount: Int,
-    onNewProduct: () -> Unit,
-    onNewPromo: () -> Unit,
-    onRefreshOrders: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .padding(horizontal = 14.dp)
-            .fillMaxWidth()
-            .shadow(10.dp, RoundedCornerShape(28.dp))
-            .clip(RoundedCornerShape(28.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF173B25),
-                        Color(0xFF285C38),
-                        Color(0xFFE3C044),
-                    )
-                )
-            )
-            .border(1.dp, Color.White.copy(alpha = 0.38f), RoundedCornerShape(28.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(58.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.White.copy(alpha = 0.18f))
-                    .border(1.dp, Color.White.copy(alpha = 0.28f), RoundedCornerShape(18.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                AmazonLineIcon(AmazonIcon.Menu, tint = Color.White, modifier = Modifier.size(34.dp))
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "Panel admin", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
-                Text(
-                    text = when (activeTab) {
-                        "orders" -> "Pedidos, pagos simulados y estados"
-                        "promos" -> "Banners y anuncios del home"
-                        else -> "Catalogo, stock e imagenes"
-                    },
-                    color = Color(0xFFF6EFC8),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-            if (unreadCount > 0) {
-                Text(
-                    text = "$unreadCount nuevos",
-                    color = BosqueInk,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(StoreActionYellow)
-                        .padding(horizontal = 10.dp, vertical = 7.dp)
-                )
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                AdminMetric("Productos", productCount.toString(), AmazonIcon.Cart)
-                AdminMetric("Pedidos", orderCount.toString(), AmazonIcon.User)
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                AdminMetric("Anuncios", promoCount.toString(), AmazonIcon.Home)
-                AdminMetric("Nuevos", unreadCount.toString(), AmazonIcon.Menu)
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Button(
-                onClick = onNewProduct,
-                modifier = Modifier.weight(1f).height(52.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = BosqueGreenDeep),
-            ) {
-                Text(text = "Agregar producto", fontWeight = FontWeight.Black)
-            }
-            Button(
-                onClick = onNewPromo,
-                modifier = Modifier.weight(1f).height(52.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = StoreActionYellow, contentColor = BosqueInk),
-            ) {
-                Text(text = "Agregar anuncio", fontWeight = FontWeight.Black)
-            }
-        }
-        if (activeTab == "orders") {
-            Button(
-                onClick = onRefreshOrders,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(18.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.92f), contentColor = BosqueGreenDeep),
-            ) {
-                Text(text = "Actualizar pedidos", fontWeight = FontWeight.Black)
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdminMetric(label: String, value: String, icon: AmazonIcon, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = 0.17f))
-            .border(1.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(18.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.18f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            AmazonLineIcon(icon = icon, tint = StoreActionYellow, modifier = Modifier.size(20.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = value, color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text(text = label, color = Color(0xFFF6EFC8), fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-    }
-}
-
-@Composable
-private fun AdminOrderCard(order: OrderRecord, onStatus: (String) -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(22.dp))
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
-            .border(1.dp, BosqueBorder.copy(alpha = 0.82f), RoundedCornerShape(22.dp))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(StoreSoftMint),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    AmazonLineIcon(AmazonIcon.Cart, tint = StoreLink, modifier = Modifier.size(25.dp))
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = "Pedido ${order.id.take(8)}", color = BosqueInk, fontWeight = FontWeight.Black, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(text = "${order.items.sumOf { it.quantity }} items - ${formatSoles(order.total)}", color = BosqueWarmth, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                }
-            }
-            StatusBadge(formatOrderStatus(order.status), order.status != "cancelled")
-        }
-        Text(
-            text = order.customerEmail.ifBlank { "cliente" },
-            color = BosqueMuted,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        order.items.take(3).forEach { item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(BosqueSurfaceSoft)
-                    .padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RemoteImage(
-                    url = item.imageUrl,
-                    contentDescription = item.productName,
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(13.dp)),
-                    background = BosqueSurfaceStrong,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = item.productName, color = BosqueInk, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(text = "${item.quantity} x ${formatSoles(item.unitPrice)}", color = BosqueMuted, fontSize = 12.sp)
-                }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AdminSmallButton("Preparando", { onStatus("preparing") }, Modifier.weight(1f))
-            AdminSmallButton("Listo", { onStatus("ready") }, Modifier.weight(1f))
-            AdminSmallButton("Completado", { onStatus("completed") }, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun AdminNotificationsPanel(notifications: List<AdminNotificationRecord>, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(5.dp, RoundedCornerShape(22.dp))
-            .clip(RoundedCornerShape(22.dp))
-            .background(StoreSoftMint)
-            .border(1.dp, BosqueBorder, RoundedCornerShape(22.dp))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(StoreActionYellow),
-                contentAlignment = Alignment.Center,
-            ) {
-                AmazonLineIcon(AmazonIcon.Menu, tint = BosqueInk, modifier = Modifier.size(17.dp))
-            }
-            Text(text = "Avisos recientes", color = BosqueInk, fontWeight = FontWeight.Black, fontSize = 17.sp)
-        }
-        notifications.forEach { notification ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color.White.copy(alpha = 0.72f))
-                    .padding(9.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(if (notification.isRead) BosqueMuted else StoreActionYellow)
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(text = notification.title, color = BosqueInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                    Text(text = notification.body, color = BosqueMuted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AdminProductCard(product: ProductRecord, onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(22.dp))
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
-            .border(1.dp, BosqueBorder.copy(alpha = 0.82f), RoundedCornerShape(22.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            RemoteImage(
-                url = product.imageUrls.firstOrNull().orEmpty(),
-                contentDescription = product.name,
-                modifier = Modifier
-                    .size(86.dp)
-                    .clip(RoundedCornerShape(20.dp)),
-                background = product.accentHex.toComposeColor(BosqueSurfaceStrong).copy(alpha = 0.75f),
-                placeholderText = product.name.take(2).uppercase(),
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    AdminMiniChip(product.category, StoreSoftMint, StoreLink)
-                    AdminMiniChip("${product.imageUrls.size} img", BosqueSurfaceSoft, BosqueMuted)
-                }
-                Text(text = product.name, color = BosqueInk, fontWeight = FontWeight.Black, fontSize = 19.sp, lineHeight = 21.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(text = "${formatSoles(product.offerPrice ?: product.price)} - stock ${product.stock}", color = BosqueMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                if (product.offerPrice != null && product.offerPrice < product.price) {
-                    Text(text = "Oferta: antes ${formatSoles(product.price)}", color = BosqueWarmth, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                }
-            }
-            StatusBadge(if (product.isActive) "Activo" else "Oculto", product.isActive)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AdminSmallButton("Modificar", onEdit, Modifier.weight(1f))
-            AdminSmallButton("Eliminar", onDelete, Modifier.weight(1f), danger = true)
-        }
-    }
-}
-
-@Composable
-private fun AdminPromoCard(promo: HomePromoRecord, onEdit: () -> Unit, onDelete: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(22.dp))
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
-            .border(1.dp, BosqueBorder.copy(alpha = 0.82f), RoundedCornerShape(22.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            RemoteImage(
-                url = promo.imageUrl,
-                contentDescription = promo.title,
-                modifier = Modifier
-                    .size(86.dp)
-                    .clip(RoundedCornerShape(20.dp)),
-                background = promo.colorHexes.firstOrNull()?.toComposeColor(StoreSoftMint) ?: StoreSoftMint,
-                placeholderText = "AD",
-            )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    AdminMiniChip("Orden ${promo.displayOrder}", StoreSoftMint, StoreLink)
-                    AdminMiniChip(if (promo.imageUrl.isBlank()) "sin imagen" else "imagen", BosqueSurfaceSoft, BosqueMuted)
-                }
-                Text(text = promo.eyebrow, color = BosqueMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(text = promo.title, color = BosqueInk, fontWeight = FontWeight.Black, fontSize = 19.sp, lineHeight = 21.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            StatusBadge(if (promo.isActive) "Activo" else "Oculto", promo.isActive)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            AdminSmallButton("Modificar", onEdit, Modifier.weight(1f))
-            AdminSmallButton("Eliminar", onDelete, Modifier.weight(1f), danger = true)
-        }
-    }
 }
 
 @Composable
@@ -4372,7 +3864,7 @@ private fun MarketplaceTopBar(
         Column {
             Text(text = "Zeta Dorada", color = BosqueInk, style = MaterialTheme.typography.headlineMedium)
             Text(
-                text = email ?: "Tienda demo conectada a Supabase",
+                text = email ?: "Zeta Dorada",
                 color = BosqueMuted,
                 fontSize = 12.sp,
                 maxLines = 1,
@@ -4455,7 +3947,7 @@ private data class Promo(
 )
 
 @Composable
-private fun PromoCarousel(promos: List<Promo>) {
+private fun PromoCarousel(promos: List<Promo>, rotationSeconds: Int = 4) {
     var index by remember { mutableStateOf(0) }
     if (promos.isEmpty()) {
         EmptyPromoCarousel()
@@ -4464,7 +3956,7 @@ private fun PromoCarousel(promos: List<Promo>) {
     val promo = promos[index.coerceAtMost(promos.lastIndex)]
 
     LaunchedEffect(index, promos.size) {
-        delay(3600)
+        delay(rotationSeconds.coerceIn(2, 60) * 1000L)
         index = (index + 1) % promos.size
     }
 
@@ -4572,7 +4064,7 @@ private fun AuthStrip(
                 Text(text = "Continuar con Google", fontWeight = FontWeight.Black)
             }
             Text(
-                text = "Demo conectada a Supabase. Google es el unico inicio de sesion en esta pantalla.",
+                text = "Inicia sesión con Google para guardar tu carrito y tus pedidos.",
                 color = BosqueMuted,
                 fontSize = 11.sp,
                 lineHeight = 15.sp,
@@ -4916,7 +4408,7 @@ private fun ProductRow(product: Product, quantity: Int, onClick: () -> Unit, onA
             Text(text = "***** ${product.rating}  |  ${product.benefits.joinToString(" - ")}", color = Color(0xFF8C6A18), fontSize = 12.sp)
             Spacer(modifier = Modifier.height(8.dp))
             ProductPriceBlock(product = product, priceSize = 25, originalSize = 12)
-            Text(text = "Entrega gratis simulada - Retiro disponible", color = BosqueGreenDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Text(text = "Delivery en Lima - Recojo disponible", color = BosqueGreenDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(10.dp))
             Button(
                 onClick = onAdd,
@@ -4944,7 +4436,7 @@ private fun ProductImage(product: Product, modifier: Modifier = Modifier, imageU
 }
 
 @Composable
-private fun RemoteImage(
+internal fun RemoteImage(
     url: String,
     contentDescription: String?,
     modifier: Modifier = Modifier,
@@ -5002,7 +4494,7 @@ private fun DetailInfoStrip(product: Product) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         DetailMiniMetric("Formato", product.format.ifBlank { product.category }, Modifier.weight(1f))
         DetailMiniMetric("Categoria", product.category, Modifier.weight(1f))
-        DetailMiniMetric("Entrega", "Lima demo", Modifier.weight(1f))
+        DetailMiniMetric("Entrega", "Lima", Modifier.weight(1f))
     }
 }
 
@@ -5109,7 +4601,7 @@ private fun ProductDetailDialog(
                     }
                 }
             }
-            Text(text = "Compra simulada para demo. No se procesa pago ni envio real.", color = BosqueMuted, fontSize = 12.sp)
+            Text(text = "Pagas con Yape al confirmar tu pedido por WhatsApp.", color = BosqueMuted, fontSize = 12.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(onClick = onDismiss, modifier = Modifier.weight(1f), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = BosqueSurfaceStrong, contentColor = BosqueGreenDeep)) {
                     Text(text = "Cerrar", fontWeight = FontWeight.Black)
@@ -5150,10 +4642,10 @@ private fun CheckoutConfirmationDialog(
             ) {
                 AmazonLineIcon(AmazonIcon.Cart, tint = StoreLink, modifier = Modifier.size(30.dp))
             }
-            Text(text = "Confirmar pago demo", color = BosqueInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text(text = "Se simulara la aprobacion del pago, se reservara stock y el pedido aparecera en Perfil > Pedidos.", color = BosqueMuted, fontSize = 13.sp, lineHeight = 18.sp)
+            Text(text = "Confirmar pedido", color = BosqueInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text(text = "Reservamos el stock y abrimos WhatsApp con el resumen para coordinar el pago y la entrega. Tu pedido aparecerá en Perfil > Pedidos.", color = BosqueMuted, fontSize = 13.sp, lineHeight = 18.sp)
             CheckoutLine("Items", itemCount.toString())
-            CheckoutLine("Entrega", if (deliveryMethod == "pickup") "Retiro simulado" else "Delivery gratis")
+            CheckoutLine("Entrega", if (deliveryMethod == "pickup") "Recojo en tienda" else "Se coordina por WhatsApp")
             CheckoutLine("Pago", paymentMethod.label)
             CheckoutLine("Total", formatSoles(subtotal), strong = true)
             Column(
@@ -5165,9 +4657,9 @@ private fun CheckoutConfirmationDialog(
                     .padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                Text(text = "Operacion demo", color = BosqueInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text(text = "Pago con ${paymentMethod.label}", color = BosqueInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
                 Text(text = paymentMethod.detail, color = BosqueMuted, fontSize = 12.sp, lineHeight = 16.sp)
-                Text(text = "No se cobrara dinero real.", color = BosqueWarmth, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text(text = "Tu pedido queda pendiente hasta confirmar el pago.", color = BosqueWarmth, fontSize = 12.sp, fontWeight = FontWeight.Black)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
@@ -5186,7 +4678,7 @@ private fun CheckoutConfirmationDialog(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = StoreActionYellow, contentColor = BosqueInk),
                 ) {
-                    Text(text = if (checkingOut) "Procesando" else "Pagar demo", fontWeight = FontWeight.Black)
+                    Text(text = if (checkingOut) "Procesando" else "Pedir por WhatsApp", fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -5195,6 +4687,7 @@ private fun CheckoutConfirmationDialog(
 
 @Composable
 private fun CheckoutSuccessDialog(success: CheckoutSuccess, onDismiss: () -> Unit, onViewOrders: () -> Unit) {
+    val context = LocalContext.current
     Dialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -5216,27 +4709,34 @@ private fun CheckoutSuccessDialog(success: CheckoutSuccess, onDismiss: () -> Uni
             }
             Text(text = "Pedido registrado", color = BosqueInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
             Text(
-                text = "Tu compra demo quedo lista para presentacion.",
+                text = "Falta un paso: envíanos el mensaje por WhatsApp para coordinar el pago con ${success.paymentMethod} y la entrega.",
                 color = BosqueMuted,
                 fontSize = 13.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
-            AccountLine("Codigo", success.orderCode)
+            AccountLine("Código", success.orderCode)
             AccountLine("Items", success.itemCount.toString())
-            AccountLine("Pago", success.paymentMethod)
+            AccountLine("Pago", "Pendiente (${success.paymentMethod})")
             AccountLine("Total", formatSoles(success.total))
-            Text(
-                text = "Comprobante visual para demo. No reemplaza boleta, factura ni transaccion real.",
-                color = BosqueMuted,
-                fontSize = 12.sp,
-                lineHeight = 16.sp,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            )
+            success.whatsappUrl?.let { url ->
+                Button(
+                    onClick = { context.openWhatsapp(url) },
+                    modifier = Modifier.fillMaxWidth().height(50.dp),
+                    shape = RoundedCornerShape(999.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = StoreActionYellow, contentColor = BosqueInk),
+                ) {
+                    Text(text = "Abrir WhatsApp", fontWeight = FontWeight.Black)
+                }
+            }
             Button(
                 onClick = onViewOrders,
                 modifier = Modifier.fillMaxWidth().height(50.dp),
                 shape = RoundedCornerShape(999.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = StoreActionYellow, contentColor = BosqueInk),
+                colors = if (success.whatsappUrl == null) {
+                    ButtonDefaults.buttonColors(containerColor = StoreActionYellow, contentColor = BosqueInk)
+                } else {
+                    ButtonDefaults.buttonColors(containerColor = BosqueSurfaceStrong, contentColor = BosqueGreenDeep)
+                },
             ) {
                 Text(text = "Ver mis pedidos", fontWeight = FontWeight.Black)
             }
@@ -5265,7 +4765,7 @@ private fun OrderDetailDialog(order: OrderRecord, onDismiss: () -> Unit) {
         ) {
             Text(text = "Pedido ${order.id.take(8)}", color = BosqueInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Text(text = formatOrderStatus(order.status), color = BosqueGreenDeep, fontSize = 14.sp, fontWeight = FontWeight.Black)
-            AccountLine("Pago", if (order.paymentStatus == "simulated_paid") "Pago simulado aprobado" else order.paymentStatus)
+            AccountLine("Pago", formatPaymentStatus(order.paymentStatus))
             AccountLine("Items", order.items.sumOf { it.quantity }.toString())
             AccountLine("Total", formatSoles(order.total))
             Text(text = "Productos", color = BosqueInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -5339,7 +4839,7 @@ private fun CartDialog(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(text = "Carrito simulado", color = BosqueInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text(text = "Tu carrito", color = BosqueInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
             if (cartProducts.isEmpty()) {
                 Text(text = "Todavia no agregaste productos.", color = BosqueMuted)
             } else {
@@ -5367,7 +4867,7 @@ private fun CartDialog(
 }
 
 @Composable
-private fun AdminPanelDialog(
+internal fun AdminPanelDialog(
     client: SupabaseClient,
     session: SupabaseSession?,
     products: List<ProductRecord>,
@@ -5635,7 +5135,7 @@ private fun AdminPanelDialog(
 }
 
 @Composable
-private fun HomePromoAdminDialog(
+internal fun HomePromoAdminDialog(
     client: SupabaseClient,
     session: SupabaseSession?,
     promos: List<HomePromoRecord>,
@@ -6116,7 +5616,7 @@ private fun QuantityButton(text: String, onClick: () -> Unit) {
     }
 }
 
-private fun emptyProductRecord(displayOrder: Int = 99): ProductRecord =
+internal fun emptyProductRecord(displayOrder: Int = 99): ProductRecord =
     ProductRecord(
         id = "nuevo-producto",
         name = "Nuevo producto",
@@ -6130,7 +5630,7 @@ private fun emptyProductRecord(displayOrder: Int = 99): ProductRecord =
         rating = "4.8",
         colorHex = "#426B35",
         accentHex = "#EEF4D8",
-        benefits = listOf("Demo"),
+        benefits = emptyList(),
         stock = 0,
         imageKeys = emptyList(),
         imageUrls = emptyList(),
@@ -6138,7 +5638,7 @@ private fun emptyProductRecord(displayOrder: Int = 99): ProductRecord =
         displayOrder = displayOrder,
     )
 
-private fun emptyHomePromoRecord(displayOrder: Int = 99): HomePromoRecord =
+internal fun emptyHomePromoRecord(displayOrder: Int = 99): HomePromoRecord =
     HomePromoRecord(
         id = "nuevo-anuncio",
         eyebrow = "Nuevo anuncio",
@@ -6327,16 +5827,25 @@ private fun productWarningCopy(product: Product): List<String> =
         "Suspende su uso si notas molestias y mantenlo fuera del alcance de ninos.",
     )
 
-private fun formatSoles(amount: Int): String = "S/ ${amount}.00"
+internal fun formatSoles(amount: Int): String = "S/ ${amount}.00"
 
-private fun formatOrderStatus(status: String): String =
+internal fun formatOrderStatus(status: String): String =
     when (status) {
+        "pending_payment" -> "Pendiente de pago"
         "paid" -> "Pagado"
         "preparing" -> "Preparando"
         "ready" -> "Listo"
         "completed" -> "Completado"
         "cancelled" -> "Cancelado"
-        else -> status.ifBlank { "Pagado" }
+        else -> status.ifBlank { "Pendiente de pago" }
+    }
+
+internal fun formatPaymentStatus(status: String): String =
+    when (status) {
+        "pending" -> "Pendiente (Yape por WhatsApp)"
+        "paid" -> "Pagado"
+        "simulated_paid" -> "Pago demo (sin cobro)"
+        else -> status
     }
 
 @SuppressLint("MissingPermission")

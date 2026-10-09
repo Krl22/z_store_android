@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zeta-image-upload-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-30",
+  "r2_buckets": [
+    { "binding": "STORE_IMAGES", "bucket_name": "zeta-store-images" }
+  ],
+  "vars": {
+    "SUPABASE_URL": "https://ijlmtgmdibrdjhqpiygv.supabase.co",
+    "ALLOWED_ORIGIN": "*"
+  },
+  // SUPABASE_ANON_KEY vive como variable en el dashboard de Cloudflare; keep_vars evita que un deploy la borre.
+  "keep_vars": true
+}

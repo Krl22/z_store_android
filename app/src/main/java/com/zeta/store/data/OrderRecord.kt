@@ -55,6 +55,8 @@ data class OrderRecord(
 data class AdminNotificationRecord(
     val id: String,
     val orderId: String,
+    /** order | customer | stock */
+    val kind: String,
     val title: String,
     val body: String,
     val isRead: Boolean,

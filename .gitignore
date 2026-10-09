@@ -20,3 +20,6 @@ app/google-services.json
 *.jks
 *.keystore
 *.pem
+
+# Supabase CLI local state
+supabase/.temp/

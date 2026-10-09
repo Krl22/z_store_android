@@ -463,6 +463,145 @@ class SupabaseClient(
             JSONArray(response).toOrders().firstOrNull()
         }
 
+    /** Link wa.me con el resumen del pedido; el número y el texto los arma Supabase (order_whatsapp_message). */
+    suspend fun fetchOrderWhatsappUrl(session: SupabaseSession, orderId: String): String =
+        withContext(Dispatchers.IO) {
+            if (!isConfigured) throw IllegalStateException("Configura Supabase para confirmar pedidos.")
+
+            val response = request(
+                path = "/rest/v1/rpc/order_whatsapp_message",
+                method = "POST",
+                body = JSONObject().put("p_order_id", orderId),
+                authToken = session.accessToken,
+            )
+            val message = JSONObject(response)
+            val phone = message.optString("phone").filter(Char::isDigit)
+            if (phone.isBlank()) throw IllegalStateException("La tienda no tiene un WhatsApp configurado.")
+
+            "https://wa.me/$phone?text=${URLEncoder.encode(message.optString("text"), "UTF-8").replace("+", "%20")}"
+        }
+
+    suspend fun fetchCustomers(session: SupabaseSession): List<AdminCustomerRecord> =
+        withContext(Dispatchers.IO) {
+            if (!isConfigured) return@withContext emptyList()
+
+            val response = request(
+                path = "/rest/v1/rpc/admin_list_customers",
+                method = "POST",
+                body = JSONObject(),
+                authToken = session.accessToken,
+            )
+            val rows = JSONArray(response)
+            List(rows.length()) { index -> rows.getJSONObject(index).toAdminCustomer() }
+        }
+
+    suspend fun setCustomerAdmin(session: SupabaseSession, userId: String, isAdmin: Boolean): Unit =
+        withContext(Dispatchers.IO) {
+            request(
+                path = "/rest/v1/rpc/admin_set_role",
+                method = "POST",
+                body = JSONObject().put("p_user_id", userId).put("p_is_admin", isAdmin),
+                authToken = session.accessToken,
+            )
+        }
+
+    /** [scope]: "cart" vacía carrito y guardados; "account" además borra direcciones, nombre y teléfono. */
+    suspend fun resetCustomer(session: SupabaseSession, userId: String, scope: String): Unit =
+        withContext(Dispatchers.IO) {
+            request(
+                path = "/rest/v1/rpc/admin_reset_customer",
+                method = "POST",
+                body = JSONObject().put("p_user_id", userId).put("p_scope", scope),
+                authToken = session.accessToken,
+            )
+        }
+
+    suspend fun deleteCustomer(session: SupabaseSession, userId: String): Unit =
+        withContext(Dispatchers.IO) {
+            request(
+                path = "/rest/v1/rpc/admin_delete_customer",
+                method = "POST",
+                body = JSONObject().put("p_user_id", userId),
+                authToken = session.accessToken,
+            )
+        }
+
+    suspend fun fetchStoreSettings(): StoreSettingsRecord? = withContext(Dispatchers.IO) {
+        if (!isConfigured) return@withContext null
+
+        val response = request(
+            path = "/rest/v1/store_settings?select=whatsapp_number,ad_rotation_seconds,low_stock_threshold&limit=1",
+            method = "GET",
+        )
+        val rows = JSONArray(response)
+        if (rows.length() == 0) return@withContext null
+        val row = rows.getJSONObject(0)
+        StoreSettingsRecord(
+            whatsappNumber = row.optNullableString("whatsapp_number"),
+            adRotationSeconds = row.optInt("ad_rotation_seconds", 4),
+            lowStockThreshold = row.optInt("low_stock_threshold", 3),
+        )
+    }
+
+    suspend fun updateStoreSettings(session: SupabaseSession, settings: StoreSettingsRecord): Unit =
+        withContext(Dispatchers.IO) {
+            request(
+                path = "/rest/v1/store_settings?id=eq.true",
+                method = "PATCH",
+                body = JSONObject()
+                    .put("whatsapp_number", settings.whatsappNumber)
+                    .put("ad_rotation_seconds", settings.adRotationSeconds)
+                    .put("low_stock_threshold", settings.lowStockThreshold),
+                authToken = session.accessToken,
+                prefer = "return=minimal",
+            )
+        }
+
+    suspend fun fetchNotificationPreferences(session: SupabaseSession): AdminNotificationPreferences =
+        withContext(Dispatchers.IO) {
+            val response = request(
+                path = "/rest/v1/admin_notification_preferences?admin_id=eq.${session.userId}&select=*",
+                method = "GET",
+                authToken = session.accessToken,
+            )
+            val rows = JSONArray(response)
+            if (rows.length() == 0) return@withContext AdminNotificationPreferences()
+            val row = rows.getJSONObject(0)
+            AdminNotificationPreferences(
+                enabled = row.optBoolean("enabled", true),
+                newOrders = row.optBoolean("new_orders", true),
+                newCustomers = row.optBoolean("new_customers", true),
+                lowStock = row.optBoolean("low_stock", true),
+            )
+        }
+
+    suspend fun saveNotificationPreferences(session: SupabaseSession, preferences: AdminNotificationPreferences): Unit =
+        withContext(Dispatchers.IO) {
+            request(
+                path = "/rest/v1/admin_notification_preferences?on_conflict=admin_id",
+                method = "POST",
+                body = JSONObject()
+                    .put("admin_id", session.userId)
+                    .put("enabled", preferences.enabled)
+                    .put("new_orders", preferences.newOrders)
+                    .put("new_customers", preferences.newCustomers)
+                    .put("low_stock", preferences.lowStock),
+                authToken = session.accessToken,
+                prefer = "resolution=merge-duplicates,return=minimal",
+            )
+        }
+
+    suspend fun updateProductStock(session: SupabaseSession, productId: String, stock: Int): Unit =
+        withContext(Dispatchers.IO) {
+            request(
+                path = "/rest/v1/products?id=eq.${URLEncoder.encode(productId, "UTF-8")}",
+                method = "PATCH",
+                body = JSONObject().put("stock", stock.coerceAtLeast(0)),
+                authToken = session.accessToken,
+                prefer = "return=minimal",
+            )
+        }
+
     suspend fun fetchAdminNotifications(session: SupabaseSession): List<AdminNotificationRecord> =
         withContext(Dispatchers.IO) {
             if (!isConfigured) return@withContext emptyList()
@@ -807,13 +946,13 @@ private fun JSONArray.toOrders(): List<OrderRecord> =
 private fun JSONObject.toOrderRecord(): OrderRecord =
     OrderRecord(
         id = getString("id"),
-        userId = optString("user_id"),
+        userId = optNullableString("user_id"),
         customerEmail = optString("customer_email"),
-        status = optString("status", "paid"),
-        paymentStatus = optString("payment_status", "simulated_paid"),
+        status = optString("status", "pending_payment"),
+        paymentStatus = optString("payment_status", "pending"),
         subtotal = optInt("subtotal", 0),
         total = optInt("total", 0),
-        addressId = optString("address_id"),
+        addressId = optNullableString("address_id"),
         deliveryMethod = optString("delivery_method", "pickup"),
         deliveryStatus = optString("delivery_status", "pending"),
         customerName = optString("customer_name"),
@@ -842,7 +981,8 @@ private fun JSONArray.toAdminNotifications(): List<AdminNotificationRecord> =
         val item = getJSONObject(index)
         AdminNotificationRecord(
             id = item.getString("id"),
-            orderId = item.optString("order_id"),
+            orderId = item.optNullableString("order_id"),
+            kind = item.optString("kind", "order"),
             title = item.optString("title", "Nuevo pedido"),
             body = item.optString("body"),
             isRead = item.optBoolean("is_read", false),
@@ -870,6 +1010,27 @@ private fun String.extractErrorMessage(): String {
     return listOf("message", "msg", "error_description", "error", "details", "hint")
         .firstNotNullOfOrNull { key -> json.optString(key).takeIf { it.isNotBlank() } }
         ?: body
+}
+
+private fun JSONObject.toAdminCustomer(): AdminCustomerRecord {
+    val providers = optJSONArray("providers")
+    return AdminCustomerRecord(
+        id = getString("id"),
+        email = optNullableString("email"),
+        fullName = optNullableString("full_name"),
+        phone = optNullableString("phone"),
+        role = optString("role", "customer"),
+        createdAt = optNullableString("created_at"),
+        lastSignInAt = optNullableString("last_sign_in_at"),
+        emailConfirmed = optBoolean("email_confirmed", false),
+        providers = if (providers == null) emptyList() else List(providers.length()) { providers.optString(it) },
+        ordersCount = optInt("orders_count", 0),
+        pendingOrdersCount = optInt("pending_orders_count", 0),
+        totalPaid = optInt("total_paid", 0),
+        lastOrderAt = optNullableString("last_order_at"),
+        addressesCount = optInt("addresses_count", 0),
+        cartUnits = optInt("cart_units", 0),
+    )
 }
 
 private fun JSONObject.optNullableString(name: String): String =
